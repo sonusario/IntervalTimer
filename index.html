@@ -321,9 +321,11 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 /* ---------- Runner ---------- */
 #run{z-index:30;background:radial-gradient(130% 70% at 50% 0%,color-mix(in srgb,var(--c) 30%,var(--bg)) 0%,var(--bg) 72%);padding:var(--st) var(--sr) var(--sb) var(--sl)}
 .rhead{display:flex;align-items:center;gap:10px;padding:10px 14px}
+/* Four buttons up here, so give the title back some room on a small phone. */
+@media (max-width:400px){.rhead{gap:6px;padding:10px 10px}.rhead .iconbtn{width:34px;height:34px;border-radius:10px}}
 .rhmid{flex:1;min-width:0;text-align:center}
 .rname{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rleft{color:var(--mu);font-size:13px}
+.rleft{color:var(--mu);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* The stage is a size container: the ring and media are sized from the space actually
    left between the header and the controls, so nothing can spill over them. */
 .rstage{flex:1;min-height:0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:0 20px;overflow:hidden;container-type:size;--rw:min(78cqw,calc(66cqh - 82px),340px)}
@@ -345,6 +347,8 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 #run.paused .rtime{animation:blink 1.1s steps(2) infinite}
 @keyframes blink{50%{opacity:.35}}
 .rnext{color:var(--mu);font-size:15px;line-height:20px;min-height:20px;max-width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* The finished and scheduled screens have room to breathe, so let their note wrap. */
+.rnext.wrap{white-space:pre-line;text-wrap:balance}
 .rrail{padding:0 18px}
 .rctrl{display:flex;justify-content:center;align-items:center;gap:28px;padding:16px 0 20px}
 .rctrl button{width:58px;height:58px;border-radius:50%;background:rgba(255,255,255,.08);display:grid;place-items:center;flex:none}
@@ -791,6 +795,7 @@ body.watching #sheet{z-index:70}
   <div class="rhead">
     <button class="iconbtn" id="rMin" aria-label="Back to menu, keep running"></button>
     <div class="rhmid"><div class="rname" id="rName"></div><div class="rleft num" id="rLeft"></div></div>
+    <button class="iconbtn" id="rRestart" aria-label="Restart this routine"></button>
     <button class="iconbtn" id="rMute" aria-label="Mute this routine"></button>
     <button class="iconbtn" id="rEnd" aria-label="End routine"></button>
   </div>
@@ -806,6 +811,7 @@ body.watching #sheet{z-index:70}
         <span class="num" id="rEl">0:00</span>
         <input type="range" id="rRange" min="0" max="30" step="0.1" value="0" aria-label="Position in this interval">
         <span class="num" id="rRem">−0:30</span>
+        <button class="rsync" id="rAgain" aria-label="Restart this interval"></button>
         <button class="rsync" id="rSync" aria-label="Sync to a clock time"></button>
       </div>
       <div class="rnext" id="rNext"></div>
@@ -977,7 +983,8 @@ const UI={plus:'M12 5v14M5 12h14',edit:'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',back:'
   gap:'M3 12h3M9 12h2M14 12h2M19 12h2M6 8v8M18 8v8',minus:'M5 12h14',
   playplus:'M4 5l9 6-9 6zM17.8 3h2.4v2.8H23v2.4h-2.8V11h-2.4V8.2H15V5.8h2.8z',
   shield:'M12 3l7 3v6c0 4-3 7.2-7 9-4-1.8-7-5-7-9V6z',check:'M5 13l4 4L19 7',
-  watch:'M12 6a8 8 0 1 0 0 16a8 8 0 0 0 0-16M12 10v4l3 2M9.5 2h5M12 2v4'};
+  watch:'M12 6a8 8 0 1 0 0 16a8 8 0 0 0 0-16M12 10v4l3 2M9.5 2h5M12 2v4',
+  restart:'M3 12a9 9 0 1 0 2.7-6.4M3 4v5h5',tostart:'M21 5l-9 7 9 7zM12 5l-9 7 9 7z'};
 const ui=(k,cls='icon')=>`<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${UI[k]}"/></svg>`;
 
 const ICONS={
@@ -3064,7 +3071,7 @@ function mediaSeconds(m){
   if(!m?.key)return Promise.resolve(0);
   if(!durCache.has(m.key)){
     durCache.set(m.key,(async()=>{
-      if(m.type!=='video'){const b=await audioBuffer(m.key);return b?b.duration:0}
+      if(m.type!=='video')return 0;   // a still has no length to match
       const src=await Store.url(m.key);if(!src)return 0;
       const v=document.createElement('video');
       v.preload='metadata';v.muted=true;v.playsInline=true;
@@ -3842,6 +3849,7 @@ function setPaused(r,p){
   }
   persistRuns();
   if(r.id===focusId&&runVisible())renderRunner();
+  syncVideo(r,true);
   updateRunsUI(true);
 }
 function beginNow(r){
@@ -3862,9 +3870,34 @@ function seekSeg(r,si,ms,cue){
   r.jumped=true;r.cueOnJump=!!cue&&!r.pausedAt;r.lastWhole=null;
   if(r.lastSi===si){restartTrack(r);r.cueOnJump=false}
   tickRuns();persistRuns();
-  if(r.id===focusId&&runVisible())drawRunner(true);
+  if(r.id===focusId&&runVisible()){drawRunner(true);syncVideo(r,true)}
 }
 const seekTo=(r,i,ms,cue)=>{if(r?.w)seekSeg(r,segOfInterval(r.w,i),ms,cue)};
+/* Back to the top of whatever is on screen now. */
+function restartSeg(r){
+  if(!r?.w||!isLive(r))return;
+  seekSeg(r,posAt(r.w,elapsedOf(r)).si,0,true);
+  haptic(20);
+  toast('Interval restarted');
+}
+/* Back to the very beginning. Time already trained stays counted. */
+function restartRun(r){
+  if(!r?.w||r.done||isWaiting(r))return;
+  const now=Date.now();
+  Object.assign(r,{anchor:now,pausedAt:null,tick:now,lastSi:null,lastWhole:null,lastRem:null,
+    liveBegin:true,jumped:false,forceLive:false});
+  stopTrack(r);
+  tickRuns();persistRuns();
+  if(r.id===focusId&&runVisible())renderRunner();
+  refreshScreen();haptic(30);
+  toast('Back to the start');
+}
+/* A finished run is already logged, so going again is a fresh one rather than a rewind. */
+function startAgain(r){
+  const wid=r.wid;
+  removeRun(r);
+  startNow(wid);
+}
 function jumpRun(r,delta){
   if(!r?.w||!isLive(r))return;
   const tl=timeline(r.w),p=posAt(r.w,elapsedOf(r));
@@ -3994,13 +4027,17 @@ function renderRunner(){
   e.innerHTML=r.done||wait?ui('close'):ui('stop','icon fill');
   e.setAttribute('aria-label',r.done?'Close':wait?'Cancel scheduled start':'End routine');
   const b=$('#rPlay');
-  if(r.done){b.innerHTML=ui('close');b.setAttribute('aria-label','Close')}
+  if(r.done){b.innerHTML=ui('play','icon fill');b.setAttribute('aria-label','Start this routine again')}
   else if(wait){b.innerHTML=ui('play','icon fill');b.setAttribute('aria-label','Start now')}
   else if(r.pausedAt){b.innerHTML=ui('play','icon fill');b.setAttribute('aria-label','Resume')}
   else{b.innerHTML=ui('pause');b.setAttribute('aria-label','Pause')}
   $('#rPrev').disabled=$('#rSkip').disabled=r.done||wait;
   $('#rSync').disabled=r.done;
-  $('#rSeek').classList.toggle('off',r.done||wait);
+  $('#rAgain').disabled=r.done||wait;
+  $('#rRestart').disabled=r.done||wait;
+  $('#rRestart').classList.toggle('hidden',r.done);
+  $('#rSeek').classList.toggle('off',wait);
+  $('#rSeek').classList.toggle('hidden',r.done);
   RE.range.disabled=r.done||wait;
   showInterval(r);
   drawRunner(true);
@@ -4015,14 +4052,17 @@ function showInterval(r){
     run.classList.remove('trans');
     $('#rTitle').textContent=wait?'Starts in':'Routine complete';
     $('#rIcon').innerHTML=wait?ui('clock'):'';
-    $('#rNext').textContent=wait?`${whenLabel(anchorOf(r))}${repeats(r.plan)?` · ${REPEAT_N[r.plan.repeat]}`:''}`:(r.logged?'Added to your chart':'Too short to add to your chart');
+    $('#rNext').textContent=wait?`${whenLabel(anchorOf(r))}${repeats(r.plan)?` · ${REPEAT_N[r.plan.repeat]}`:''}`
+      :`${r.logged?'Added to your chart':'Too short for your chart'}\nStart again below`;
+    $('#rNext').classList.add('wrap');
     $('#rRail').innerHTML=railHTML(w,wait?null:w.intervals.length);markOverflow($('#rRail'));
-    box.replaceChildren();run.classList.add('nomedia');railGeo();
+    box.replaceChildren();RE.mkey='';RE.vdur=0;run.classList.add('nomedia');railGeo();
     return;
   }
   const p=posAt(w,elapsedOf(r)),seg=p.seg,tr=seg.kind==='tr',it=w.intervals[p.idx];
   const out=tr&&seg.k>=w.intervals.length;
   RE.si=p.si;
+  $('#rNext').classList.remove('wrap');
   run.classList.toggle('trans',tr);
   if(tr){
     $('#rTitle').textContent=seg.k===0?'Get ready':out?'Cool-off':'Transition';
@@ -4042,13 +4082,39 @@ function showInterval(r){
   RE.range.max=String(seg.dur/1000);RE.range.step=seg.dur>120000?'1':'0.1';
   RE.range.setAttribute('aria-label',tr?'Position in this transition':'Position in this interval');
   RE.range.setAttribute('aria-valuetext',`${fmt(p.el/1000)} of ${fmt(seg.dur/1000)}`);
-  const tok=RE.mtok=Symbol();
-  box.replaceChildren();
-  if(media)Store.url(media.key).then(src=>{
-    if(RE.mtok!==tok)return;
-    box.replaceChildren(src?mediaEl(media.type,src,media.fit):missingEl());
-    if(r.pausedAt||!runVisible())box.querySelectorAll('video').forEach(v=>v.pause());
-  });
+  /* Only rebuild the element when the media itself changes. Re-rendering for a pause
+     used to recreate it, which is why a clip jumped back to the start. */
+  const mkey=media?`${media.key}|${media.fit||''}|${placeOf(media)}`:'';
+  if(mkey!==RE.mkey||!box.firstChild){
+    RE.mkey=mkey;RE.vdur=0;
+    const tok=RE.mtok=Symbol();
+    box.replaceChildren();
+    if(media){
+      if(media.type==='video')mediaSeconds(media).then(d=>{if(RE.mtok===tok)RE.vdur=d||0});
+      Store.url(media.key).then(src=>{
+        if(RE.mtok!==tok)return;
+        box.replaceChildren(src?mediaEl(media.type,src,media.fit):missingEl());
+        syncVideo(r,true);
+      });
+    }
+  }else syncVideo(r,true);
+}
+/* Video follows the interval's clock. When the clip is shorter than the interval it
+   loops, so the right frame is elapsed modulo the clip's length. */
+function syncVideo(r,force){
+  const v=$('#rMedia video');
+  if(!v||!r||!r.w)return;
+  const live=isLive(r)&&!r.pausedAt&&runVisible();
+  const p=posAt(r.w,elapsedOf(r));
+  if(!p.done&&p.seg.kind==='int'){
+    const d=RE.vdur||(isFinite(v.duration)&&v.duration>0?v.duration:0);
+    if(d>0){
+      const want=(p.el/1000)%d;
+      if(force||Math.abs(v.currentTime-want)>.4){try{v.currentTime=want}catch(e){}}
+    }
+  }
+  if(live){if(v.paused)v.play().catch(()=>{})}
+  else if(!v.paused)v.pause();
 }
 /* Rail geometry is measured once per interval, not per frame. */
 /* Rail geometry is measured once per segment, not per frame. */
@@ -4061,7 +4127,7 @@ function setT(el,v,k){if(RE.shown[k]!==v){RE.shown[k]=v;el.textContent=v}}
 function setS(el,prop,v,k){if(RE.shown[k]!==v){RE.shown[k]=v;el.style[prop]=v}}
 function drawRunner(force){
   const r=focusRun();if(!r)return;
-  if(force)RE.shown={};
+  if(force){RE.shown={};RE.tight=innerWidth<380}
   const w=workoutOf(r),now=Date.now(),T=total(w)*1000;
   if(r.done){
     if(RE.si!==-1)return renderRunner();
@@ -4076,7 +4142,7 @@ function drawRunner(force){
     if(RE.si!==-2)return renderRunner();
     const tt=untilLabel(-el);
     setT(RE.time,tt,'t');RE.time.classList.toggle('long',tt.length>5);
-    setT(RE.left,`${fmt(T/1000)} routine · ends ${clockTime(anchorOf(r)+T)}`,'l');
+    setT(RE.left,`${fmt(T/1000)} routine${RE.tight?'':` · ends ${clockTime(anchorOf(r)+T)}`}`,'l');
     setS(RE.arc,'strokeDashoffset','565.49','a');
     return;
   }
@@ -4089,10 +4155,11 @@ function drawRunner(force){
   const rem=Math.max(0,d-shownEl);
   const tt=fmt(Math.ceil(rem/1000));
   setT(RE.time,tt,'t');RE.time.classList.toggle('long',tt.length>5);
-  setT(RE.left,`${fmt(Math.ceil((T-el)/1000))} left · ends ${clockTime(now+T-el)}${scaleLabel(r)}`,'l');
+  setT(RE.left,`${fmt(Math.ceil((T-el)/1000))} left${RE.tight?'':` · ends ${clockTime(now+T-el)}`}${scaleLabel(r)}`,'l');
   setS(RE.arc,'strokeDashoffset',(565.49*(1-rem/d)).toFixed(1),'a');
   if(!RE.seeking){const v=(p.el/1000).toFixed(1);if(RE.shown.rv!==v){RE.shown.rv=v;RE.range.value=v}}
   setT(RE.el,fmt(Math.floor(shownEl/1000)),'e');
+  if(now-(RE.vsync||0)>2000){RE.vsync=now;syncVideo(r,false)}
   setT(RE.rem,'−'+fmt(Math.ceil(rem/1000)),'m');
   if(RE.geo&&RE.fill){
     const px=Math.max(0,RE.geo.x+RE.geo.w*Math.min(1,shownEl/d)-10);
@@ -4170,7 +4237,10 @@ function updateRunsUI(force){
 function bindRun(){
   Object.assign(RE,{time:$('#rTime'),left:$('#rLeft'),arc:$('#rArc'),range:$('#rRange'),el:$('#rEl'),rem:$('#rRem')});
   $('#rMin').innerHTML=ui('chev');$('#rPrev').innerHTML=ui('prev','icon fill');$('#rSkip').innerHTML=ui('next','icon fill');
-  $('#rSync').innerHTML=ui('clock','icon sm');
+  $('#rSync').innerHTML=ui('clock','icon sm');$('#rAgain').innerHTML=ui('restart','icon sm');
+  $('#rRestart').innerHTML=ui('tostart');
+  $('#rRestart').onclick=()=>{const r=focusRun();if(r)restartRun(r)};
+  $('#rAgain').onclick=()=>{const r=focusRun();if(r)restartSeg(r)};
   $('#rMin').onclick=minimizeRunner;
   $('#rEnd').onclick=()=>{const r=focusRun();if(r)askEnd(r)};
   $('#rMute').onclick=()=>{
@@ -4184,7 +4254,7 @@ function bindRun(){
   $('#rPlay').onclick=()=>{
     const r=focusRun();if(!r)return;
     ensureAudio();
-    if(r.done)return removeRun(r);
+    if(r.done)return startAgain(r);
     if(isWaiting(r))return beginNow(r);
     setPaused(r,!r.pausedAt);
   };
