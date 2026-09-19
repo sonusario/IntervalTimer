@@ -502,10 +502,20 @@ body.sorting .wcard:active,body.sorting .icard:active{background:var(--s1)}
 /* Full-size media is a backdrop. It never takes a tap, and every control is layered
    above it, or the whole screen becomes unclickable while a clip plays. */
 #run.bleed .rmedia{position:absolute;inset:0;margin:0;border-radius:0;background:transparent;z-index:0;flex:none;max-width:none;height:auto;pointer-events:none}
-#run.bleed .rhead,#run.bleed .rtabs,#run.bleed .rrail,#run.bleed .rctrl{position:relative;z-index:1}
+/* The backdrop lives inside the stage but spans the whole screen, so the stage's
+   subtree would paint over anything at the same level that comes before it in the
+   DOM — the header did exactly that. The chrome sits a layer above the stage. */
+#run.bleed .rhead,#run.bleed .rtabs,#run.bleed .rrail,#run.bleed .rctrl{position:relative;z-index:2}
 #run.bleed .rstage{z-index:1}
 #run.bleed .rstage{--rw:min(78cqw,calc(100cqh - 82px),360px)}
-#run.bleed .rcore{position:relative;z-index:1;--scrim:color-mix(in srgb,var(--bg) calc(var(--ovl,.45)*100%),transparent)}
+#run.bleed{--scrim:color-mix(in srgb,var(--bg) calc(var(--ovl,.45)*100%),transparent)}
+#run.bleed .rcore{position:relative;z-index:1}
+/* Text and thin lines need something behind them to stay readable over a picture. */
+#run.bleed .rhmid{background:var(--scrim);border-radius:12px;padding:3px 10px}
+#run.bleed .rrail{margin:0 10px;padding-left:8px;padding-right:8px;background:var(--scrim);border-radius:14px}
+#run.bleed .rtab:not(.on){background:var(--scrim)}
+/* The faint translucent fill these use normally disappears against a picture. */
+#run.bleed .rctrl button:not(.big),#run.bleed .rsync{background:color-mix(in srgb,var(--s2) calc(45% + var(--ovl,.45)*55%),transparent)}
 #run.bleed .ring{background:radial-gradient(circle,var(--scrim) 58%,color-mix(in srgb,var(--bg) calc(var(--ovl,.45)*55%),transparent) 72%,transparent 80%)}
 #run.bleed .rnext,#run.bleed .rseek{background:var(--scrim);border-radius:12px;padding:2px 8px}
 #run.bleed.trans .rmedia{opacity:.5}
