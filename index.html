@@ -103,6 +103,16 @@ input{font:inherit;color:inherit}
 .chead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .ctitle{font-family:var(--disp);font-size:22px;font-weight:700;line-height:1.1}
 .cinfo{color:var(--mu);font-size:13px}
+.cinfo.tapme{color:var(--ac);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.menu.sublist button{padding:10px 12px}
+.menu.sublist button:disabled{opacity:.45}
+.menu.seslist .ses{padding:10px 12px}
+.menu.seslist .ses:disabled{opacity:1}
+.menu.sublist .sl,.menu.seslist .sl{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.menu.sublist .sl small,.menu.seslist .sl small{display:block;color:var(--mu);font-weight:500;font-size:12px;margin-top:2px}
+.menu.sublist .dot,.menu.seslist .dot{width:10px;height:10px;border-radius:50%;flex:none}
+.prev.red{color:var(--bad)}
+.linkb{color:var(--ac);text-decoration:underline;text-underline-offset:2px;font:inherit}
 .rng{display:flex;background:var(--s2);border-radius:10px;padding:3px}
 .rng button{padding:6px 10px;border-radius:8px;font-size:13px;font-weight:600;color:var(--mu)}
 .rng button.on{background:var(--s3);color:var(--tx)}
@@ -206,6 +216,16 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 .audio.playing .wave rect{fill:var(--tx)}
 .xa{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:none}
 .clockmini{width:100%;max-width:40vh;aspect-ratio:1;display:block;margin:0 auto}
+.subrow{display:flex;align-items:center;gap:8px;width:100%;margin-top:10px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;text-align:left;color:var(--mu);border:1.5px dashed var(--line)}
+.subrow.on{color:var(--tx);border-color:transparent;background:color-mix(in srgb,var(--sc) 20%,var(--s2))}
+.subrow .icon{flex:none}
+.subrow.on .icon{color:var(--sc)}
+.subrow .sl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.subrow .val{color:var(--mu);font-weight:500;font-size:12px;flex:none}
+.icard.art .subrow{position:relative;z-index:1;background:color-mix(in srgb,var(--s1) calc(35% + var(--ovl,.45)*60%),transparent)}
+/* Chips naming the routine a session sits inside. */
+.subtag{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--mu);font-weight:600}
+.subtag .icon{width:13px;height:13px;color:var(--c)}
 .clockmini svg{width:100%;height:100%;display:block}
 .ctrack{fill:var(--s2);stroke:var(--s3);stroke-width:8}
 .carc{fill:none;stroke:var(--c);stroke-width:8;stroke-linecap:round}
@@ -325,6 +345,11 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 @media (max-width:400px){.rhead{gap:6px;padding:10px 10px}.rhead .iconbtn{width:34px;height:34px;border-radius:10px}}
 .rhmid{flex:1;min-width:0;text-align:center}
 .rname{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rname.nested{display:flex;align-items:center;justify-content:center;gap:5px}
+.rname.nested .icon{color:var(--c);flex:none}
+.rname.nested span{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.rtab.kid{padding-left:6px}
+.rtab.kid>.sub{width:12px;height:12px;opacity:.8;flex:none}
 .rleft{color:var(--mu);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* The stage is a size container: the ring and media are sized from the space actually
    left between the header and the controls, so nothing can spill over them. */
@@ -499,7 +524,11 @@ body.sorting .wcard:active,body.sorting .icard:active{background:var(--s1)}
 .icard.art .media{position:absolute;inset:0;width:auto;aspect-ratio:auto;max-height:none;border:0;border-radius:var(--r);background:#0b0d14;z-index:0}
 .icard.art .ibody{min-height:150px;align-items:end}
 .icard.art .ibody>div{justify-content:flex-end}
-.icard.art .ititle,.icard.art .audio,.icard.art .cue,.icard.art .clockmini,.icard.art .fitbadge,.icard.art .media>.x{position:relative;z-index:1}
+.icard.art .ititle,.icard.art .audio,.icard.art .cue,.icard.art .clockmini,.icard.art .fitbadge{position:relative;z-index:1}
+/* The picture IS the card here, with the controls floating over it, so there is no
+   uncrowded corner for a remove button. Tapping the picture opens its options,
+   Remove among them. */
+.icard.art .media>.x{display:none}
 .icard.art .ititle,.icard.art .audio,.icard.art .cue{background:color-mix(in srgb,var(--s1) calc(35% + var(--ovl,.45)*60%),transparent);border-radius:12px}
 .icard.art .ititle{padding:4px 6px;margin:-4px -6px 0}
 .icard.art .clockmini{filter:drop-shadow(0 3px 10px rgba(0,0,0,.65))}
@@ -655,6 +684,8 @@ body.watching #sheet{z-index:70}
 
 #toast{position:fixed;left:50%;bottom:calc(24px + var(--sb));transform:translate(-50%,20px);background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;opacity:0;transition:.25s;z-index:100;pointer-events:none;max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translate(-50%,0)}
+#toast.act{pointer-events:auto;display:flex;align-items:center;gap:14px;cursor:pointer}
+#toast.act b{text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 /* ---------- Wide screens: centered content ---------- */
@@ -874,7 +905,19 @@ const PALETTE=['#FFD23F','#4DD9A6','#5AA9FF','#FF7A59','#C98BFF','#FF5C8A','#7BE
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=s=>{s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60,p=n=>String(n).padStart(2,'0');return h?`${h}:${p(m)}:${p(x)}`:`${m}:${p(x)}`};
 const total=w=>timeline(w).total/1000;
-const workTotal=w=>w.intervals.reduce((a,i)=>a+i.duration,0);
+/* An interval can stand in for a whole other routine. Its length is then that
+   routine's, so the two can never drift apart. A run works from its own frozen copy
+   (subW), which is what keeps a routine that is already going from changing under it. */
+const subLive=it=>it&&it.sub?S.workouts.find(w=>w.id===it.sub.id)||null:null;
+function durOf(it){
+  if(!it.sub||it.subW)return it.duration;
+  const sw=subLive(it);if(!sw)return it.duration;
+  const t=Math.round(timeline(sw).total/1000);
+  return t>0?t:it.duration;
+}
+const subName=it=>it.sub?(subLive(it)?.name||it.sub.name||'Deleted routine'):'';
+const subColor=it=>it.sub?(subLive(it)?.color||it.sub.color||null):null;
+const workTotal=w=>w.intervals.reduce((a,i)=>a+durOf(i),0);
 const transTotal=w=>Math.round(timeline(w).total/1000-workTotal(w));
 const fmtS=s=>s<60?`${Math.round(s)}s`:fmt(s);
 const transOf=w=>w.trans??S.settings.trans??0;
@@ -890,14 +933,14 @@ const tlCache=new WeakMap();
 /* Play order as segments, plus the next interval start for each one so the 3-2-1
    beeps always count into an interval rather than into a transition. */
 function timeline(w){
-  const def=transOf(w),sig=def+'|'+w.intervals.map(i=>`${i.duration},${i.pre??''},${i.post??''}`).join(';');
+  const def=transOf(w),sig=def+'|'+w.intervals.map(i=>`${durOf(i)},${i.pre??''},${i.post??''}`).join(';');
   const hit=tlCache.get(w);
   if(hit&&hit.sig===sig)return hit;
   const segs=[];let t=0;
   for(let k=0;k<=w.intervals.length;k++){
     const g=gapAt(w,k);
     if(g>0){segs.push({kind:'tr',k,start:t,dur:g*1000});t+=g*1000}
-    if(k<w.intervals.length){const d=w.intervals[k].duration*1000;segs.push({kind:'int',idx:k,start:t,dur:d});t+=d}
+    if(k<w.intervals.length){const d=durOf(w.intervals[k])*1000;segs.push({kind:'int',idx:k,start:t,dur:d});t+=d}
   }
   const nextInt=[];let nx=t;
   for(let i=segs.length-1;i>=0;i--){nextInt[i]=nx;if(segs[i].kind==='int')nx=segs[i].start}
@@ -909,7 +952,19 @@ const segOfInterval=(w,i)=>timeline(w).segs.findIndex(s=>s.kind==='int'&&s.idx==
 const segSubject=(w,s)=>w.intervals[s.kind==='int'?s.idx:Math.min(s.k,w.intervals.length-1)];
 /* A run keeps its own copy with the inherited transition resolved, so changing the
    app default can't shift a routine that is already running. */
-const snapshot=w=>{const c=structuredClone(w);c.trans=transOf(w);return c};
+function snapshot(w,depth=0){
+  const c=structuredClone(w);c.trans=transOf(w);
+  for(const it of c.intervals){
+    if(!it.sub)continue;
+    delete it.subW;
+    const sw=depth<4?subLive(it):null;
+    if(sw&&timeline(sw).total>0){
+      it.subW=snapshot(sw,depth+1);
+      it.duration=Math.round(timeline(it.subW).total/1000);
+    }else delete it.sub;   // gone, or nested too deep: the interval just runs as itself
+  }
+  return c;
+}
 /* Write every gap onto its interval so a run can be scaled piece by piece. */
 function materialGaps(w){
   const n=w.intervals.length,gaps=[];
@@ -984,7 +1039,9 @@ const UI={plus:'M12 5v14M5 12h14',edit:'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',back:'
   playplus:'M4 5l9 6-9 6zM17.8 3h2.4v2.8H23v2.4h-2.8V11h-2.4V8.2H15V5.8h2.8z',
   shield:'M12 3l7 3v6c0 4-3 7.2-7 9-4-1.8-7-5-7-9V6z',check:'M5 13l4 4L19 7',
   watch:'M12 6a8 8 0 1 0 0 16a8 8 0 0 0 0-16M12 10v4l3 2M9.5 2h5M12 2v4',
-  restart:'M3 12a9 9 0 1 0 2.7-6.4M3 4v5h5',tostart:'M21 5l-9 7 9 7zM12 5l-9 7 9 7z'};
+  restart:'M3 12a9 9 0 1 0 2.7-6.4M3 4v5h5',tostart:'M21 5l-9 7 9 7zM12 5l-9 7 9 7z',
+  list:'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01',
+  sub:'M21 12a9 9 0 1 1-2.6-6.4M21 3v4h-4M12 9v6M9 12h6'};
 const ui=(k,cls='icon')=>`<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${UI[k]}"/></svg>`;
 
 const ICONS={
@@ -1007,7 +1064,21 @@ const FITS=[['cover','Fill'],['contain','Fit'],['fill','Stretch'],['none','Origi
 const fitName=f=>(FITS.find(x=>x[0]===f)||FITS[0])[1];
 
 let toastT;
-function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2400)}
+/* A toast can carry one thing to do — undo, mostly. It only takes taps while it is
+   offering something, so an ordinary message never swallows one meant for the screen. */
+function toast(msg,act){
+  const t=$('#toast');
+  clearTimeout(toastT);
+  t.onclick=null;
+  t.classList.toggle('act',!!act);
+  if(act){
+    t.innerHTML=`<span>${esc(msg)}</span><b>${esc(act.label||'Undo')}</b>`;
+    t.onclick=()=>{hideToast();act.fn?.()};
+  }else t.textContent=msg;
+  t.classList.add('show');
+  toastT=setTimeout(hideToast,act?6000:2400);
+}
+function hideToast(){const t=$('#toast');t.classList.remove('show');t.onclick=null;t.classList.remove('act')}
 function buzz(ms=8){if(S.settings.haptics===false)return;try{navigator.vibrate?.(ms)}catch(e){}}
 function pickMime(list){if(!window.MediaRecorder)return '';return list.find(m=>MediaRecorder.isTypeSupported?.(m))||''}
 
@@ -1140,6 +1211,14 @@ function migrate(v){
   return s;
 }
 
+/* Would putting `cand` inside `hostId` come back round to itself? */
+function subLoops(hostId,candId,depth=0){
+  if(candId===hostId)return true;
+  if(depth>6)return true;
+  const w=S.workouts.find(x=>x.id===candId);
+  if(!w)return false;
+  return w.intervals.some(it=>it.sub&&subLoops(hostId,it.sub.id,depth+1));
+}
 function normRoutine(w){
   w.id=String(w.id||uid());w.name=String(w.name||'Routine');w.color=w.color||PALETTE[0];
   w.created=+w.created||0;w.cues=w.cues&&typeof w.cues==='object'?w.cues:{};
@@ -1147,13 +1226,21 @@ function normRoutine(w){
   const secs=x=>typeof x==='number'&&isFinite(x)&&x>=0;
   if(!secs(w.trans))delete w.trans;
   if(!/^#[0-9a-f]{6}$/i.test(w.color2||''))delete w.color2;
-  w.intervals.forEach(it=>{if(!secs(it.pre))delete it.pre;if(!secs(it.post))delete it.post});
+  w.intervals.forEach(it=>{
+    if(!secs(it.pre))delete it.pre;
+    if(!secs(it.post))delete it.post;
+    delete it.subW;
+    if(it.sub&&typeof it.sub==='object'&&it.sub.id)it.sub={id:String(it.sub.id),name:String(it.sub.name||''),color:it.sub.color||null};
+    else delete it.sub;
+  });
   return w;
 }
 
 /* ---------- Media bookkeeping ---------- */
 const busy=new Set(),busyMsg=new Map();
-const keysOf=w=>[w.cues?.start?.key,w.cues?.end?.key,w.cues?.done?.key,w.cues?.tstart?.key,w.cues?.tend?.key,...w.intervals.flatMap(i=>[i.media?.key,i.audio?.key,i.cues?.start?.key,i.cues?.end?.key])].filter(Boolean);
+const keysOf=(w,depth=0)=>[w.cues?.start?.key,w.cues?.end?.key,w.cues?.done?.key,w.cues?.tstart?.key,w.cues?.tend?.key,
+  ...w.intervals.flatMap(i=>[i.media?.key,i.audio?.key,i.cues?.start?.key,i.cues?.end?.key,
+    ...(i.subW&&depth<4?keysOf(i.subW,depth+1):[])])].filter(Boolean);
 function mediaInUse(key){
   const all=[...S.workouts.filter(w=>!E||w.id!==E.w.id),...(E?[E.w]:[]),...runs.map(r=>r.w).filter(Boolean)];
   return all.some(w=>keysOf(w).includes(key))||Object.values(S.settings.cues).some(c=>c?.key===key);
@@ -1290,7 +1377,7 @@ function speak(text,flush){
   speechSynthesis.speak(u);
 }
 function unlockSpeech(){if(!('speechSynthesis' in window))return;try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u)}catch(e){}}
-const fillText=(t,it)=>(t||'{title}').replace(/\{title\}/g,it?.title||'Next interval').replace(/\{duration\}/g,spokenDur(it?.duration||30));
+const fillText=(t,it)=>(t||'{title}').replace(/\{title\}/g,it?.title||'Next interval').replace(/\{duration\}/g,spokenDur(it?durOf(it):30));
 
 /* Recorded and uploaded audio plays through Web Audio for precise pause/resume offsets.
    Decoded audio is far bigger than the file it came from — a five-minute stereo track
@@ -1371,11 +1458,30 @@ function playBuffer(buf,offset=0,loop=false){
   s.onended=()=>h.onended?.();
   return h;
 }
-function playCue(c,it){
+/* A cue belongs to the moment it fires. Skip past an interval and its readout should
+   stop, not queue up in front of the one you actually want, so every cue carries the
+   run's cue generation: hushCues bumps that, which cancels pending speech, stops cues
+   still sounding and drops any that were still waiting on a decode. */
+function hushCues(r){
+  if(r){
+    r.cueGen=(r.cueGen||0)+1;
+    if(r.cueSrc){for(const h of r.cueSrc)try{h.stop()}catch(e){}r.cueSrc=null}
+  }
+  // Speech has one queue for the whole page, so a stale utterance can only be dropped
+  // by clearing it. Two routines reading out at once is already a scramble.
+  if('speechSynthesis' in window)try{speechSynthesis.cancel()}catch(e){}
+}
+function playCue(c,it,r){
   if(!c||c.kind==='none'||!ensureAudio())return false;
+  if(r&&r.cueGen==null)r.cueGen=0;
+  const gen=r?r.cueGen:0,live=()=>!r||r.cueGen===gen;
   if(c.kind==='builtin'){if(!SOUNDS[c.id])return false;SOUNDS[c.id].p()}
   else if(c.kind==='tts')speak(fillText(c.text,it));
-  else if(c.kind==='media'||c.kind==='synth')(c.kind==='synth'?synthBuffer(c.p):audioBuffer(c.key)).then(b=>{if(b)playBuffer(b)});
+  else if(c.kind==='media'||c.kind==='synth')(c.kind==='synth'?synthBuffer(c.p):audioBuffer(c.key)).then(b=>{
+    if(!b||!live())return;
+    const h=playBuffer(b);
+    if(h&&r){(r.cueSrc||(r.cueSrc=[])).push(h);h.onended=()=>{if(r.cueSrc)r.cueSrc=r.cueSrc.filter(x=>x!==h)}}
+  });
   else return false;
   return true;
 }
@@ -1422,7 +1528,7 @@ function railHTML(w,cur,tap){
   return `<div class="rail ${tap?'tap':''}" style="${themeVars(w)}">${fill}${timeline(w).segs.map((s,si)=>{
     if(s.kind==='tr')return `<div class="gap" data-si="${si}" style="--g:${s.dur/1000}"></div>`;
     const i=s.idx,it=iv[i],st=cur==null?'':i<cur?'done':i===cur?'cur':'';
-    return `<div class="seg ${st}" data-si="${si}" style="--g:${Math.max(it.duration,1)}"${tap?` data-j="${i}"`:''}><span class="stop">${it.icon||it.iconImg?iconFor(it):'<i class="dot"></i>'}</span></div>`}).join('')}</div>`;
+    return `<div class="seg ${st}" data-si="${si}" style="--g:${Math.max(durOf(it),1)}"${tap?` data-j="${i}"`:''}><span class="stop">${it.icon||it.iconImg?iconFor(it):'<i class="dot"></i>'}</span></div>`}).join('')}</div>`;
 }
 function markOverflow(root){$$('.rail',root).forEach(r=>r.classList.toggle('over',r.scrollWidth>r.clientWidth+1))}
 
@@ -1437,6 +1543,7 @@ function openSheet(html,onPick,opts={}){
   box.scrollTop=0;
   sheetClose=opts.onClose||null;
   requestAnimationFrame(()=>requestAnimationFrame(()=>sh.classList.add('open')));
+  navOpen('sheet',closeSheet);
   sh.onclick=e=>{
     if(e.target===sh){closeSheet();return}
     const k=e.target.closest('[data-keep]');
@@ -1446,6 +1553,7 @@ function openSheet(html,onPick,opts={}){
   };
 }
 function closeSheet(){
+  navDone('sheet');
   const f=sheetClose;sheetClose=null;f?.();
   const sh=$('#sheet'),box=$('.sheetin');
   box.classList.remove('dragging');box.style.transform='';sh.style.background='';
@@ -1526,6 +1634,66 @@ function sideDraggable(btn,host,key,onTap){
 }
 
 let screen='dash';
+/* ================= Back =================
+   On a phone the system back gesture would otherwise leave the app from wherever you
+   happened to be. Each layer that opens on top of the dashboard registers itself and
+   pushes a history entry, so back closes the sheet, then the dial, then the editor,
+   and only leaves once the dashboard itself is showing. Layers closed by their own
+   buttons give their entry back, which is what keeps the two stacks in step. */
+const NAV=[];
+let navLock=0,navBack=false,navOK=false,navPend=0;
+const navDepth=()=>(history.state&&history.state.nav)||0;
+/* Bring the browser's history in line with NAV. history.go is asynchronous, so while
+   a traversal of ours is in flight nothing is pushed: the popstate that lands calls
+   back here and the deferred entries go on then. Without that, closing a layer and
+   opening another in the same tick leaves the two stacks one apart, and the next
+   back press walks out of the app instead of up a level. */
+function navSync(){
+  if(!navOK||navPend)return;
+  const cur=navDepth();
+  if(cur<NAV.length){for(let i=cur;i<NAV.length;i++){try{history.pushState({nav:i+1},'')}catch(e){NAV.length=i;return}}}
+  else if(cur>NAV.length){navPend++;navLock++;try{history.go(NAV.length-cur)}catch(e){navPend--;navLock--}}
+}
+function navInit(){
+  try{
+    if(navDepth()===0)history.replaceState({...(history.state||{}),nav:0},'');
+    navOK=true;
+  }catch(e){navOK=false}   // file:// in some browsers, where pushState is not allowed
+  addEventListener('popstate',()=>{
+    if(navPend>0)navPend--;
+    if(navLock>0){navLock--;navSync();return}
+    // Close down to wherever the browser actually landed: back can move more than one.
+    const cur=navDepth();
+    while(NAV.length>cur){
+      const top=NAV.pop();
+      navBack=true;
+      try{top.close()}catch(e){}
+      navBack=false;
+    }
+    navSync();
+  });
+  navSync();   // a reload deep in the stack leaves entries with nothing behind them
+}
+function navOpen(key,close){
+  if(!navOK)return;
+  if(NAV.length&&NAV.at(-1).key===key){NAV[NAV.length-1].close=close;return}
+  NAV.push({key,close});
+  navSync();
+}
+/* Jumped all the way home without closing layers one at a time. */
+function navHome(){
+  if(!navOK||navBack||!NAV.length)return;
+  NAV.length=0;navSync();
+}
+/* A layer closed on its own, so wind the history back past it (and anything that
+   was sitting on top of it) without running any close handlers a second time. */
+function navDone(key){
+  if(!navOK||navBack)return;
+  const i=NAV.map(e=>e.key).lastIndexOf(key);
+  if(i<0)return;
+  NAV.length=i;
+  navSync();
+}
 function show(id){
   screen=id;document.body.dataset.screen=id;
   ['dash','detail','editor','settings'].forEach(s=>$('#'+s).classList.toggle('hidden',s!==id));
@@ -1618,7 +1786,7 @@ function openRecorder(title,onDone){
 const CAM={stream:null,facing:'environment',mode:'image',rec:null,chunks:[],onDone:null,timer:null};
 async function openCamera(mode,onDone){
   Object.assign(CAM,{mode,onDone});
-  $('#cam').classList.remove('hidden');camUI();await camStart();
+  $('#cam').classList.remove('hidden');camUI();navOpen('cam',closeCamera);await camStart();
 }
 function camUI(){
   $$('#camModes button').forEach(b=>b.classList.toggle('on',b.dataset.cm===CAM.mode));
@@ -1638,6 +1806,7 @@ async function camStart(){
   }
 }
 function closeCamera(){
+  navDone('cam');
   if(CAM.rec&&CAM.rec.state==='recording'){CAM.rec.onstop=null;CAM.rec.stop()}
   clearInterval(CAM.timer);$('#camTime').textContent='';$('#camShot').classList.remove('on');
   camStopStream();$('#cam').classList.add('hidden');$('#cam').classList.remove('err');CAM.rec=null;
@@ -1689,10 +1858,12 @@ async function openDraw(bgBlob,onDone){
   DW.layer=document.createElement('canvas');DW.layer.width=cv.width;DW.layer.height=cv.height;
   document.body.classList.add('drawing');
   $('#draw').classList.remove('hidden');
+  navOpen('draw',()=>closeDraw(false));
   redrawAll();
 }
 function closeDraw(force){
   if(!force&&DW.strokes.length){confirmSheet('Discard this drawing?','What you drew will be lost.','Discard',()=>closeDraw(true),'Keep drawing');return}
+  navDone('draw');
   $('#draw').classList.add('hidden');document.body.classList.remove('drawing');
   Object.assign(DW,{cb:null,strokes:[],redo:[],cur:null,bgImg:null});
 }
@@ -1889,13 +2060,15 @@ function setDrawer(snap,persist=true){
   $('#dashTop').inert=snap==='full';
   $('#dashFab').inert=snap!=='peek';
   if(persist&&S.ui.drawer!==snap){S.ui.drawer=snap;save()}
+  // A chart pulled over the dashboard should come down on back, not leave the app.
+  if(snap==='peek')navDone('drawer');else navOpen('drawer',()=>setDrawer('peek'));
 }
 function cycleDrawer(){const {snaps}=drawerHeights();setDrawer(snaps[(snaps.indexOf($('#drawer').dataset.snap)+1)%snaps.length])}
 function bindDrawer(){
   const d=$('#drawer'),handle=$('#drawerHandle');
   let st=null,dragged=false;
   const down=e=>{
-    if(e.button>0||e.target.closest('#rng'))return;
+    if(e.button>0||e.target.closest('#rng')||e.target.closest('.cinfo.tapme'))return;
     if(e.pointerType==='mouse')e.preventDefault();
     st={y:e.clientY,h:d.getBoundingClientRect().height,pid:e.pointerId,moved:false,v:0,ly:e.clientY,lt:performance.now(),el:e.currentTarget};
     try{e.currentTarget.setPointerCapture(e.pointerId)}catch(_){}
@@ -1928,6 +2101,65 @@ function bindDrawer(){
   handle.onclick=()=>{if(!dragged)cycleDrawer()};
   let rz=0;
   addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(screen==='dash')setDrawer(d.dataset.snap,false)},100)});
+}
+
+/* ---------- Sessions: every logged run, one by one ----------
+   The chart shows totals; this is the list behind them, so a single session can be
+   removed without clearing everything. Scope picks the list to work on: the main
+   history or the archive from deleted routines. */
+function sessionList(scope){return scope==='archive'?S.archive:S.history}
+function sessionsSheet(opt={}){
+  const scope=opt.scope==='archive'?'archive':'history';
+  let bucket=opt.bucket||null;   // {k,long,range} when we came in from a chart bar
+  const body=()=>{
+    const all=sessionList(scope);
+    const rows=all.map((e,i)=>({e,i}))
+      .filter(({e})=>!bucket||bucketKey(e.date,bucket.range)===bucket.k)
+      .sort((a,b)=>(b.e.at||Date.parse(b.e.date+'T12:00:00')||0)-(a.e.at||Date.parse(a.e.date+'T12:00:00')||0)||b.i-a.i);
+    const live=Object.fromEntries(S.workouts.map(w=>[w.id,w]));
+    const when=e=>{
+      const d=new Date((e.date||'')+'T00:00:00');
+      const day=isNaN(d)?(e.date||'Unknown'):d.toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});
+      return e.at?`${day} · ${clockTime(e.at)}`:day;
+    };
+    const head=bucket?`<h4>${esc(bucket.long)}</h4>`:`<h4>${scope==='archive'?'Archived sessions':'Your sessions'}</h4>`;
+    const note=bucket
+      ? `<p class="small">${plural(rows.length,'session')} here. <button class="linkb" data-keep="all">Show every session</button></p>`
+      : `<p class="small">${rows.length?`${plural(rows.length,'session')}, newest first. Removing one takes its time out of the chart.`:'Nothing recorded yet.'}</p>`;
+    return head+note+`<div class="menu seslist">`+(rows.length?rows.map(({e})=>{
+      const w=live[e.workoutId];
+      const name=w?w.name:(e.n||'Deleted routine');
+      return `<div class="cuerow"><button class="ses" data-keep="i:${esc(e.id)}" ${w?'':'disabled'}>
+        <i class="dot" style="background:${esc(w?w.color:(e.c||'var(--mu)'))}"></i>
+        <span class="sl">${esc(name)}<small>${esc(when(e))}</small></span>
+        <span class="val">${fmt(e.seconds)}</span></button>
+        <button class="prev red" data-keep="d:${esc(e.id)}" aria-label="Delete this session">${ui('trash','icon sm')}</button></div>`;
+    }).join(''):`<p class="small">No sessions to show.</p>`)+`</div>`;
+  };
+  const redraw=()=>{$('#sheetBody').innerHTML=body()};
+  openSheet(body(),null,{onKeep:k=>{
+    if(k==='all'){bucket=null;return redraw()}
+    if(k.startsWith('i:')){
+      const e=sessionList(scope).find(x=>x.id===k.slice(2));
+      const w=e&&S.workouts.find(x=>x.id===e.workoutId);
+      if(w){closeSheet();openEditor(w.id,screen)}
+      return;
+    }
+    if(!k.startsWith('d:'))return;
+    const id=k.slice(2),list=sessionList(scope),e=list.find(x=>x.id===id);
+    if(!e)return;
+    const i=list.indexOf(e);list.splice(i,1);save();
+    haptic(15);redraw();
+    if(screen==='dash')renderMainChart();
+    if(screen==='settings')settingsCounts();
+    // Put it back if that was a slip.
+    toast(`Removed ${fmt(e.seconds)}`,{label:'Undo',fn:()=>{
+      if(sessionList(scope).some(x=>x.id===id))return;
+      list.splice(Math.min(i,list.length),0,e);save();redraw();
+      if(screen==='dash')renderMainChart();
+      if(screen==='settings')settingsCounts();
+    }});
+  },onClose:hideToast});
 }
 
 /* ---------- Charts (main history and archive) ---------- */
@@ -1999,6 +2231,7 @@ function drawChart(o){
   }
   const maxS=Math.max(0,...B.map(b=>b.sum)),sumS=B.reduce((a,b)=>a+b.sum,0);
   const unit=maxS>3*3600?'h':'m',div=unit==='h'?3600:60;
+  o.info.onclick=null;o.info.classList.remove('tapme');o.info.removeAttribute('role');o.info.removeAttribute('tabindex');
   o.info.textContent=(skip?`${B[0].long} – ${B.at(-1).long}`:o.label(unit))+(sumS?` · ${fmt(sumS)} total · ${fmt(Math.round(sumS/N))} avg`:'');
   const rank=id=>{const k=S.workouts.findIndex(w=>w.id===id);return k<0?1e9:k};
   const ids=Object.keys(rangeTot).sort((a,b)=>rank(a)-rank(b)||a.localeCompare(b));
@@ -2123,13 +2356,19 @@ function drawChart(o){
     sel.setAttribute('x',ml+i*bw);sel.setAttribute('opacity','1');
     const n=Object.keys(b.by).filter(id=>!hid.has(id)).length;
     o.info.textContent=b.sum?`${b.long}: ${fmt(b.sum)} across ${plural(n,'routine')}`:`${b.long}: no training`;
+    // The totals are the way in to the sessions behind them.
+    const can=!!b.sum&&!!o.scope;
+    o.info.classList.toggle('tapme',can);
+    o.info.onclick=can?()=>sessionsSheet({scope:o.scope,bucket:{k:b.k,long:b.long,range:o.range}}):null;
+    if(can){o.info.setAttribute('role','button');o.info.setAttribute('tabindex','0')}
+    else{o.info.removeAttribute('role');o.info.removeAttribute('tabindex')}
   };
 }
 const toggleHidden=(list,id)=>{const i=list.indexOf(id);if(i<0)list.push(id);else list.splice(i,1)};
 function renderMainChart(){
   const snap={};for(const h of S.history)if(h.c)snap[h.workoutId]={c:h.c,n:h.n};
   drawChart({el:$('#chart'),legend:$('#legend'),info:$('#chartInfo'),entries:S.history,range:S.ui.range,
-    hidden:S.ui.hide,avg:S.ui.avg,row:$('#avgRow'),win:S.ui.avgWin,off:S.ui.chartOff,
+    scope:'history',hidden:S.ui.hide,avg:S.ui.avg,row:$('#avgRow'),win:S.ui.avgWin,off:S.ui.chartOff,
     onWin:v=>{S.ui.avgWin=v;save();renderMainChart()},
     onPan:v=>{S.ui.chartOff=v;save();renderMainChart()},
     toggle:id=>{if(id==='__avg')S.ui.avg=!S.ui.avg;else toggleHidden(S.ui.hide,id);save();renderMainChart()},
@@ -2143,7 +2382,7 @@ function renderArchiveChart(){
   const el=$('#archChart');if(!el)return;
   const per={d:'day',w:'week',m:'month'}[S.ui.arch[0]];
   drawChart({el,legend:$('#archLegend'),info:$('#archInfo'),entries:S.archive,range:S.ui.arch,
-    hidden:S.ui.hideA,avg:S.ui.avgA,row:$('#archAvgRow'),win:S.ui.avgWinA,off:S.ui.chartOffA,
+    scope:'archive',hidden:S.ui.hideA,avg:S.ui.avgA,row:$('#archAvgRow'),win:S.ui.avgWinA,off:S.ui.chartOffA,
     onWin:v=>{S.ui.avgWinA=v;save();renderArchiveChart()},
     onPan:v=>{S.ui.chartOffA=v;save();renderArchiveChart()},
     toggle:id=>{if(id==='__avg')S.ui.avgA=!S.ui.avgA;else toggleHidden(S.ui.hideA,id);save();renderArchiveChart()},
@@ -2171,9 +2410,10 @@ function loadSample(){
 
 /* ================= Detail (read-only) ================= */
 let detailId=null;
-function openDetail(id){detailId=id;show('detail');renderDetail();$('#dList').scrollTop=0}
+function openDetail(id){detailId=id;show('detail');renderDetail();$('#dList').scrollTop=0;navOpen('detail',closeDetail)}
+function closeDetail(){navDone('detail');show('dash');renderDash()}
 function renderDetail(){
-  const w=S.workouts.find(x=>x.id===detailId);if(!w){show('dash');renderDash();return}
+  const w=S.workouts.find(x=>x.id===detailId);if(!w){navHome();show('dash');renderDash();return}
   const t=total(w),act=runs.find(r=>r.wid===w.id&&isLive(r));
   setTheme($('#detail'),w);
   $('#dName').textContent=w.name;
@@ -2193,7 +2433,7 @@ function renderDetail(){
       <span class="dico">${it.icon||it.iconImg?iconFor(it):''}</span>
       <div class="dmain"><b>${esc(it.title||`Interval ${i+1}`)}</b>${extras.length?`<small>${esc(extras.join(', '))}</small>`:''}</div>
       <div class="dthumb" data-i="${i}"></div>
-      <span class="ddur num">${fmt(it.duration)}</span></div>`}).join('')
+      <span class="ddur num">${fmt(durOf(it))}</span></div>`}).join('')
     :`<div class="hint"><b>No intervals yet</b>Edit this routine to add some.</div>`;
   const b=$('#dStart');
   b.innerHTML=act?`${ui('up')}Open routine`:`${ui('play','icon fill')}Start routine`;
@@ -2206,7 +2446,7 @@ function renderDetail(){
   });
 }
 function renderDetailRuns(){
-  const list=runs.filter(r=>r.wid===detailId);rowsKey=runKey(list);
+  const list=runs.filter(r=>!isKid(r)&&r.wid===detailId);rowsKey=runKey(list);
   $('#dRuns').innerHTML=list.map(r=>{
     const w=workoutOf(r);
     const acts=r.done?`<button class="chip" data-rx="close:${r.id}">Close</button>`
@@ -2256,7 +2496,7 @@ function timingSheet({wid=null,run=null}){
   if(st.scope>=w.intervals.length)st.scope=-1;
   let phase='h',lastPhase=null;
   const off=()=>st.scope>=0?offsetMs(w,st.scope):0;
-  const dur=()=>st.scope>=0?w.intervals[st.scope].duration*1000:T;
+  const dur=()=>st.scope>=0?durOf(w.intervals[st.scope])*1000:T;
   const startOf=()=>st.anchor+off(),endOf=()=>startOf()+dur();
   const pinned=()=>st.edge==='start'?startOf():endOf();
   const setPinned=ms=>{st.anchor=st.edge==='start'?ms-off():ms-off()-dur()};
@@ -2265,7 +2505,7 @@ function timingSheet({wid=null,run=null}){
     <p class="small">${active?'Line this routine up with the clock. Set a start or an end and the other follows.':'Set when the routine, or one interval, starts or ends.'}</p>
     <select class="tsel" id="tScope" aria-label="What to line up">
       <option value="-1">Whole routine (${fmt(T/1000)})</option>
-      ${w.intervals.map((it,i)=>`<option value="${i}">Interval ${i+1}: ${esc(it.title||'Untitled')} (${fmt(it.duration)})</option>`).join('')}
+      ${w.intervals.map((it,i)=>`<option value="${i}">Interval ${i+1}: ${esc(it.title||'Untitled')} (${fmt(durOf(it))})</option>`).join('')}
     </select>
     <div class="seg3" id="tEdge"><button data-keep="ed:start">Starts at</button><button data-keep="ed:end">Ends at</button></div>
     <div class="tpick">
@@ -2381,7 +2621,8 @@ function timingSheet({wid=null,run=null}){
 }
 /* ================= Settings ================= */
 let archRO=null;
-function openSettings(){show('settings');renderSettings();$('#setList').scrollTop=0}
+function openSettings(){show('settings');renderSettings();$('#setList').scrollTop=0;navOpen('settings',closeSettings)}
+function closeSettings(){navDone('settings');show('dash');renderDash()}
 function renderSettings(){
   const s=S.settings;
   const sw=(k,label,on,sub='')=>`<button class="srow" role="switch" aria-checked="${!!on}" data-set="${k}"><span class="sl">${label}${sub?`<small>${sub}</small>`:''}</span><span class="switch"></span></button>`;
@@ -2411,22 +2652,35 @@ function renderSettings(){
       <div class="chart archive" id="archChart"></div>
       <div class="avgrow hidden" id="archAvgRow"></div>
       <div class="legend" id="archLegend"></div>
+      ${row('archList','list','Archived sessions',plural(S.archive.length,'session'),'',!S.archive.length)}
       ${row('delArchive','trash','Delete archive data',plural(S.archive.length,'session'),'red',!S.archive.length)}
     </section>
     <section class="sgroup"><h5>Your data</h5>
+      ${row('sessions','list','Your sessions',plural(S.history.length,'session'),'',!S.history.length)}
       ${row('delHistory','trash','Delete all routine history',plural(S.history.length,'session'),'red',!S.history.length)}
       ${row('delWorkouts','trash','Delete all routines',plural(S.workouts.length,'routine'),'red',!S.workouts.length)}
       ${sw('shrinkVid','Shrink videos when adding',s.shrinkVid,'Smaller files, a little softer; sound is dropped either way')}
       ${row('export','download','Save a backup file','')}
       ${row('import','upload','Restore from a backup','')}
-      ${PWA.update?`<button class="srow upd" data-set="reload">${ui('flip')}<span class="sl">New version ready<small>Reload to use it</small></span><span class="val">Reload</span></button>`:''}
+      ${PWA.update?`<button class="srow upd" data-set="reload">${ui('flip')}<span class="sl">New version ready<small>Reload to use it</small></span><span class="val">Reload</span></button>`
+        :`<button class="srow" data-set="checkUpd" ${PWA.checking?'disabled':''}>${ui('flip')}<span class="sl">Check for a new version<small>Build ${esc(APP_BUILD)}</small></span><span class="val">${PWA.checking?'Checking…':'Check'}</span></button>`}
       ${row('install','download','Install as an app',PWA.installed?'Installed':PWA.prompt?'Ready':'How to')}
       ${row('persist','shield','Protect data from browser cleanup','Checking…')}
       <p class="snote" id="storeNote"></p>
     </section>
-    <p class="snote about">Interval keeps everything in this browser, on this device.</p>`;
+    <p class="snote about">Interval keeps everything in this browser, on this device. · Build ${esc(APP_BUILD)}</p>`;
   archRO?.disconnect();archRO?.observe($('#archChart'));
   renderArchiveChart();storageNote();
+}
+/* Settings is rebuilt wholesale elsewhere; from a sheet we only need the numbers. */
+function settingsCounts(){
+  if(screen!=='settings')return;
+  renderArchiveChart();
+  const set=(k,v,none)=>{const b=$(`[data-set="${k}"]`);if(!b)return;b.querySelector('.val').textContent=v;b.disabled=none};
+  set('sessions',plural(S.history.length,'session'),!S.history.length);
+  set('delHistory',plural(S.history.length,'session'),!S.history.length);
+  set('archList',plural(S.archive.length,'session'),!S.archive.length);
+  set('delArchive',plural(S.archive.length,'session'),!S.archive.length);
 }
 async function storageNote(){
   const [est,per]=await Promise.all([Store.estimate(),Store.persisted()]);
@@ -2455,11 +2709,14 @@ function settingAction(k,el){
     return;
   }
   if(k==='reload')return location.reload();
+  if(k==='checkUpd')return checkForUpdate();
   if(k==='trans')return globalTransSheet();
   if(k==='persist'){
     if(el.dataset.on==='1')return toast('Only the browser can undo this, in its site settings');
     return Store.persist().then(ok=>{toast(ok?'This browser will keep your data':'The browser didn’t allow that here');storageNote()});
   }
+  if(k==='sessions')return sessionsSheet({scope:'history'});
+  if(k==='archList')return sessionsSheet({scope:'archive'});
   if(k==='delArchive')return confirmSheet('Delete archive data?',`Removes ${plural(S.archive.length,'archived session')} from deleted routines. This can’t be undone.`,'Delete archive',()=>{S.archive=[];save();renderSettings();toast('Archive deleted')});
   if(k==='delHistory')return confirmSheet('Delete all routine history?',`Clears ${plural(S.history.length,'session')} from the main chart. Routines and the archive stay. This can’t be undone.`,'Delete history',()=>{S.history=[];save();renderSettings();toast('History deleted')});
   if(k==='delWorkouts')return confirmSheet('Delete all routines?',`Removes ${plural(S.workouts.length,'routine')} and their media. Their training moves to the archive, and scheduled starts are cancelled. Routines already running finish normally.`,'Delete routines',()=>{deleteWorkouts(S.workouts.map(w=>w.id));renderSettings();toast('All routines deleted')});
@@ -2743,7 +3000,7 @@ async function restoreBackup(data){
   old.forEach(k=>Store.remove(k));
   bufCache.clear();bufBytes.clear();
   setDrawer(S.ui.drawer,false);
-  if(screen==='settings')renderSettings();else{show('dash');renderDash()}
+  if(screen==='settings')renderSettings();else{navHome();show('dash');renderDash()}
   toast(`Restored ${plural(S.workouts.length,'routine')}`);
 }
 
@@ -2757,8 +3014,10 @@ function openEditor(id,from){
   $('#eName').value=w.name;
   $('#editFab').dataset.side=S.ui.editFab;
   show('editor');renderEditor();$('#ilist').scrollTop=0;
+  navOpen('editor',closeEditor);
 }
 function closeEditor(){
+  navDone('editor');
   stopPreview();vidIO?.disconnect();
   const w=E.w,trash=E.trash,from=E.from;
   w.name=w.name.trim()||'Untitled routine';
@@ -2766,7 +3025,7 @@ function closeEditor(){
   let kept=true;
   if(E.isNew&&!w.intervals.length){kept=false;E=null;releaseMedia([...keysOf(w),...trash]);toast('Empty routine discarded')}
   else{if(i>=0)S.workouts[i]=w;else S.workouts.push(w);E=null;save();releaseMedia(trash)}
-  if(from==='detail'&&kept)openDetail(w.id);
+  if(from==='detail'&&kept){if(screen!=='detail')openDetail(w.id);else renderDetail()}
   else{show('dash');renderDash()}
 }
 function updateTotal(){
@@ -2823,8 +3082,11 @@ function renderEditor(){
             ${ui('music','icon sm')}${busy.has(it.id+':a')?'<span>Saving audio…</span>':it.audio?`${waveSVG(it.audio.peaks)}<span class="xa" data-act="rmaudio" role="button" aria-label="Remove audio track">${ui('close','icon sm')}</span>`:'<span>Add audio track</span>'}
           </button>
         </div>
-        <button class="clockmini" data-act="clock" aria-label="Duration ${fmt(it.duration)}, tap to change">${miniClock(it)}</button>
+        <button class="clockmini" data-act="clock" aria-label="${it.sub?`Runs for as long as ${esc(subName(it))}, ${fmt(durOf(it))}`:`Duration ${fmt(durOf(it))}, tap to change`}">${miniClock(it)}</button>
       </div>
+      <button class="subrow ${it.sub?'on':''}" data-act="sub"${it.sub?` style="--sc:${esc(subColor(it)||'var(--c)')}"`:''} aria-label="${it.sub?`Runs ${esc(subName(it))} in place of this interval, tap to change`:'Run another routine in place of this interval'}">
+        ${ui('sub','icon sm')}<span class="sl">${it.sub?esc(subName(it)):'Run another routine here'}</span>
+        ${it.sub?`<span class="val">${subLive(it)?`${plural(subLive(it).intervals.length,'interval')} · ${fmt(durOf(it))}`:'Deleted'}</span>`:''}</button>
       <div class="cues">${cueBtn(it,'start')}${cueBtn(it,'end')}</div>
     </section>${gapBtn(i+1)}`).join('');
   fillMedia(keep);
@@ -2845,7 +3107,7 @@ async function fillMedia(keep=new Map()){
 
 const MINI_TICKS=Array.from({length:12},(_,k)=>{const a=k/12*TAU;return `<line class="ctick" x1="${50+33*Math.sin(a)}" y1="${50-33*Math.cos(a)}" x2="${50+30*Math.sin(a)}" y2="${50-30*Math.cos(a)}"/>`}).join('');
 function miniClock(it){
-  const d=it.duration,m=it.mode==='m';
+  const d=durOf(it),m=it.mode==='m';
   const lap=m?3600:60,frac=(d%lap)/lap,laps=Math.floor(d/lap),C=TAU*40;
   const label=m?fmt(d):String(d),size=label.length<=3?26:label.length<=4?22:18;
   return `<svg viewBox="0 0 100 100"><circle class="ctrack" cx="50" cy="50" r="40"/>${laps?'<circle class="cfull" cx="50" cy="50" r="40"/>':''}${MINI_TICKS}
@@ -3308,6 +3570,7 @@ function openWatch(){
   Object.assign(WT,{on:true,start:0,acc:0,paused:true,mark:0,laps:[]});
   $('#watch').classList.remove('hidden');
   document.body.classList.add('watching');
+  navOpen('watch',()=>closeWatch(false));
   renderWatch();
   const step=()=>{
     if(!WT.on)return;
@@ -3358,6 +3621,7 @@ function closeWatch(force){
     confirmSheet('Discard this stopwatch?','The laps you have taken will be lost.','Discard',()=>closeWatch(true),'Keep going');
     return;
   }
+  navDone('watch');
   WT.on=false;cancelAnimationFrame(WT.raf);WT.laps=[];
   $('#watch').classList.add('hidden');
   document.body.classList.remove('watching');
@@ -3368,6 +3632,35 @@ function bindWatch(){
   $('#wGo').onclick=watchGo;
   $('#wLapBtn').onclick=watchLap;
   $('#wStop').onclick=watchStop;
+}
+/* Pick another routine to run in place of this interval. Its length becomes the
+   interval's, so the two can never fall out of step. */
+function subSheet(i){
+  const it=E.w.intervals[i];
+  const mine=E.w.id;
+  const pool=S.workouts.filter(w=>w.id!==mine&&timeline(w).total>0).sort((a,b)=>a.created-b.created);
+  const loops=w=>subLoops(mine,w.id);
+  const cur=it.sub?.id;
+  const line=w=>{
+    const bad=loops(w),n=w.intervals.length,deep=w.intervals.filter(x=>x.sub).length;
+    return `<button data-v="w:${esc(w.id)}" class="${cur===w.id?'on':''}" ${bad?'disabled':''}>
+      <i class="dot" style="background:${esc(w.color)}"></i>
+      <span class="sl">${esc(w.name)}<small>${bad?'Would run inside itself':`${plural(n,'interval')}${deep?` · ${deep} nested`:''} · ${fmt(total(w))}`}</small></span>
+      ${cur===w.id?`<span class="val">In use</span>`:''}</button>`;
+  };
+  openSheet(`<h4>Run another routine here</h4>
+    <p class="small">${esc(it.title||`Interval ${i+1}`)} hands over to the routine you pick and takes its place again when it finishes. The interval then lasts exactly as long as that routine does.</p>
+    ${it.sub?`<div class="menu"><button data-v="none" class="red">${ui('close')}Stop using ${esc(subName(it))}<span class="val">Back to ${fmt(it.duration)}</span></button></div><div class="sect">Use a different one</div>`:''}
+    <div class="menu sublist">${pool.length?pool.map(line).join(''):'<p class="small">There are no other routines to run here yet. Make one first, then come back.</p>'}</div>`,
+  v=>{
+    if(v==='none'){delete it.sub;renderEditor();toast('Back to its own duration');return}
+    if(!v.startsWith('w:'))return;
+    const w=S.workouts.find(x=>x.id===v.slice(2));
+    if(!w||subLoops(mine,w.id))return toast('That would run inside itself');
+    it.sub={id:w.id,name:w.name,color:w.color};
+    renderEditor();
+    toast(`${w.name} runs here · ${fmt(total(w))}`);
+  });
 }
 function bindEditor(){
   sideDraggable($('#editFab'),$('#editor'),'editFab',addInterval);
@@ -3385,7 +3678,7 @@ function bindEditor(){
       E=null;
       if(S.workouts.some(x=>x.id===w.id))deleteWorkouts([w.id]);
       releaseMedia(keys);save();
-      show('dash');renderDash();toast('Routine deleted');
+      navHome();show('dash');renderDash();toast('Routine deleted');
     },'Keep it');
   };
   const list=$('#ilist');
@@ -3410,7 +3703,11 @@ function bindEditor(){
       case 'rmmedia':e.stopPropagation();{const k=it.media.key;it.media=null;renderEditor();releaseMedia([k])}break;
       case 'audio':if(it.audio)togglePreview(i,t);else trackSheet(it);break;
       case 'rmaudio':e.stopPropagation();stopPreview();{const k=it.audio.key;it.audio=null;renderEditor();releaseMedia([k])}break;
-      case 'clock':openDial(i,t);break;
+      case 'clock':
+        if(it.sub)toast(`Runs for as long as ${subName(it)} — change that routine, or the subroutine below`);
+        else openDial(i,t);
+        break;
+      case 'sub':subSheet(i);break;
       case 'cue':cueSheet({scope:'interval',w:E.w,it,which:t.dataset.w});break;
       case 'more':{
         const n=E.w.intervals.length;
@@ -3487,6 +3784,7 @@ function openDial(i,fromEl,opts){
     card.style.transition='transform .36s cubic-bezier(.2,.9,.25,1),opacity .2s';
     card.style.transform='none';card.style.opacity='1';ov.classList.add('open');
   });
+  navOpen('dial',()=>closeDial(true));
 }
 function flipFrom(el){
   const card=$('#dialCard'),svg=$('#dialSvg');
@@ -3497,6 +3795,7 @@ function flipFrom(el){
   return `translate(${a.left-c.left-s*(v.left-c.left)}px,${a.top-c.top-s*(v.top-c.top)}px) scale(${s})`;
 }
 function closeDial(commit){
+  navDone('dial');
   const it=D.onSet?null:E?.w.intervals[D.i];
   if(commit){if(D.onSet)D.onSet(D.dur,D.mode);else if(it){it.duration=D.dur;it.mode=D.mode}}
   const ov=$('#dial'),card=$('#dialCard'),from=D.from;
@@ -3607,7 +3906,7 @@ function planAnchor(w,plan){
   let off=plan.edge==='end'?total(w)*1000:0;
   if(plan.scope>=0&&plan.scope<w.intervals.length){
     off=offsetMs(w,plan.scope);
-    if(plan.edge==='end')off+=w.intervals[plan.scope].duration*1000;
+    if(plan.edge==='end')off+=durOf(w.intervals[plan.scope])*1000;
   }
   return plan.at-off;
 }
@@ -3636,7 +3935,7 @@ function nextOccurrence(at,repeat){
   return d.getTime();
 }
 function persistRuns(){
-  S.runs=runs.map(r=>{const o={};for(const k of RUN_FIELDS)if(r[k]!=null)o[k]=r[k];return o});
+  S.runs=runs.filter(r=>!isKid(r)).map(r=>{const o={};for(const k of RUN_FIELDS)if(r[k]!=null)o[k]=r[k];return o});
   lastSave=Date.now();save();
 }
 function makeRun(wid,plan=null){
@@ -3673,8 +3972,75 @@ function planRun(wid,plan){
     toast(`Starts ${whenLabel(a)}`);
   }
 }
+/* ---------- Subroutines at run time ----------
+   An interval that stands in for another routine starts a run of its own when that
+   interval comes round, and it is anchored to the moment the interval began. Both
+   runs then read the same clock, so pausing, seeking, skipping and fit-to-time
+   scaling reach the inner routine without any of it being passed along by hand.
+   Child runs are never saved: they are rebuilt from the parent on the next tick,
+   which is also what makes them survive a reload. */
+const isKid=r=>!!r?.parent;
+const parentOf=r=>r?.parent?runs.find(x=>x.id===r.parent)||null:null;
+function subSegs(r){
+  if(!r.w)return [];
+  return timeline(r.w).segs
+    .map((s,si)=>({s,si}))
+    .filter(({s})=>s.kind==='int'&&r.w.intervals[s.idx]?.subW);
+}
+/* Give the child the window the parent's interval actually occupies. */
+function fitKid(c,seg){
+  const src=c.src;if(!src)return;
+  c.pdur=seg.dur;
+  const w=structuredClone(src);
+  const have=timeline(w).total;
+  c.scale=1;
+  if(have>0&&Math.abs(have-seg.dur)>50){
+    const f=seg.dur/have;
+    materialGaps(w);
+    for(const it of w.intervals){it.pre=(it.pre||0)*f;it.duration=it.duration*f;if(it.post)it.post*=f}
+    c.scale=f;
+  }
+  c.w=w;c.lastSi=null;c.lastWhole=null;c.lastRem=null;
+}
+function syncKids(){
+  let changed=false,shown=false;
+  // Retire any child whose parent has moved on, ended, or gone away.
+  for(const c of [...runs]){
+    if(!isKid(c))continue;
+    const p=parentOf(c);
+    if(!p||!p.w||p.done||isWaiting(p)){removeRun(c,true);changed=true;continue}
+    const seg=timeline(p.w).segs[c.pseg];
+    const here=posAt(p.w,elapsedOf(p));
+    if(!seg||here.done||here.si!==c.pseg){removeRun(c,true);changed=true;continue}
+    // Slaved to the parent: same anchor, same pause, same scaling.
+    const a=anchorOf(p)+seg.start;
+    if(c.anchor!==a){c.anchor=a;changed=true}
+    if(c.pausedAt!==p.pausedAt){c.pausedAt=p.pausedAt;changed=true;if(p.pausedAt)stopTrack(c)}
+    if(c.muted!==p.muted){c.muted=p.muted;if(c.muted){stopTrack(c);hushCues(c)}}
+    if(c.pdur!==seg.dur)fitKid(c,seg);
+  }
+  // Start one for any parent that has just reached a subroutine interval.
+  for(const r of [...runs]){
+    if(isKid(r)||!r.w||r.done||isWaiting(r))continue;
+    const p=posAt(r.w,elapsedOf(r));
+    if(p.done||p.seg.kind!=='int')continue;
+    const it=r.w.intervals[p.idx];
+    if(!it?.subW)continue;
+    if(runs.some(x=>x.parent===r.id&&x.pseg===p.si))continue;
+    const seg=p.seg,now=Date.now();
+    const c=makeRun(it.sub?.id||it.subW.id);
+    Object.assign(c,{parent:r.id,pseg:p.si,src:it.subW,nolog:true,muted:r.muted,
+      anchor:anchorOf(r)+seg.start,pausedAt:r.pausedAt,tick:now,liveBegin:true,created:now});
+    fitKid(c,seg);
+    prepAudio(c.w);
+    if(focusId===r.id)focusId=c.id;   // you want to see the routine that is actually on
+    changed=shown=true;
+  }
+  if(shown&&runVisible())renderRunner();
+  return changed;
+}
 function tickRuns(){
-  const now=Date.now();let changed=false;
+  const now=Date.now();let changed=syncKids();
   for(const r of [...runs]){
     if(r.done)continue;
     const src=workoutOf(r);
@@ -3695,6 +4061,7 @@ function tickRuns(){
     if(!r.w){r.w=snapshot(src);r.anchor=a;prepAudio(r.w);requestWake();changed=true}
     const w=r.w,tl=timeline(w),p=posAt(w,el);
     if(p.done){
+      if(isKid(r)){removeRun(r,true);changed=true;continue}
       finishRun(r,r.forceLive||(!r.jumped&&now-(a+tl.total)<1500));
       changed=true;continue;
     }
@@ -3736,13 +4103,13 @@ function tickRuns(){
 }
 function enterCue(r,si){
   const w=r.w,s=timeline(w).segs[si],it=segSubject(w,s);
-  playCue(s.kind==='int'?cueOf(w,it,'start'):wCue(w,'tstart'),it);
+  playCue(s.kind==='int'?cueOf(w,it,'start'):wCue(w,'tstart'),it,r);
 }
 function segCues(r,from,to){
   const w=r.w,segs=timeline(w).segs,a=segs[from],b=segs[to],prev=segSubject(w,a),next=segSubject(w,b);
-  const had=playCue(a.kind==='int'?cueOf(w,prev,'end'):wCue(w,'tend'),prev);
-  const c=b.kind==='int'?cueOf(w,next,'start'):wCue(w,'tstart');
-  setTimeout(()=>{if(!r.done&&!r.pausedAt&&!r.muted&&r.lastSi===to)playCue(c,next)},had?550:0);
+  const had=playCue(a.kind==='int'?cueOf(w,prev,'end'):wCue(w,'tend'),prev,r);
+  const c=b.kind==='int'?cueOf(w,next,'start'):wCue(w,'tstart'),gen=r.cueGen;
+  setTimeout(()=>{if(!r.done&&!r.pausedAt&&!r.muted&&r.lastSi===to&&r.cueGen===gen)playCue(c,next,r)},had?550:0);
 }
 function stopTrack(r){r.trackTok=(r.trackTok||0)+1;if(r.track){r.track.stop();r.track=null}}
 function restartTrack(r){
@@ -3762,9 +4129,9 @@ function restartTrack(r){
 }
 function logRun(r){
   const sec=Math.round(r.active/1000);
-  if(r.logged||!r.w||sec<5)return;
+  if(r.logged||r.nolog||!r.w||sec<5)return;
   r.logged=true;
-  const e={id:uid(),date:dayKey(Date.now()),workoutId:r.wid,seconds:sec,c:r.w.color,n:r.w.name};
+  const e={id:uid(),date:dayKey(Date.now()),at:Date.now(),workoutId:r.wid,seconds:sec,c:r.w.color,n:r.w.name};
   (S.workouts.some(w=>w.id===r.wid)?S.history:S.archive).push(e);
   save();
 }
@@ -3773,9 +4140,9 @@ function finishRun(r,live){
   logRun(r);
   if(live&&!r.muted){
     const w=r.w,last=timeline(w).segs.at(-1),it=segSubject(w,last);
-    const had=playCue(last.kind==='int'?cueOf(w,it,'end'):wCue(w,'tend'),it);
-    const dc=w.cues?.done||S.settings.cues.done;
-    setTimeout(()=>playCue(dc,it),had?700:0);
+    const had=playCue(last.kind==='int'?cueOf(w,it,'end'):wCue(w,'tend'),it,r);
+    const dc=w.cues?.done||S.settings.cues.done,gen=r.cueGen;
+    setTimeout(()=>{if(r.cueGen===gen)playCue(dc,it,r)},had?700:0);
   }
   haptic(200);
   if(repeats(r.plan))scheduleNext(r);
@@ -3793,12 +4160,13 @@ function scheduleNext(r){
   return makeRun(r.wid,{...plan,at});
 }
 function removeRun(r,quiet){
-  stopTrack(r);
+  for(const c of runs.filter(x=>x.parent===r.id))removeRun(c,true);
+  stopTrack(r);hushCues(r);
   const i=runs.indexOf(r);if(i>=0)runs.splice(i,1);
   if(r.w)releaseMedia(keysOf(r.w));
   if(focusId===r.id){
     focusId=null;
-    const nx=runs.find(isLive)||runs[0];
+    const nx=(r.parent&&runs.find(x=>x.id===r.parent))||runs.find(isLive)||runs[0];
     if(nx&&runVisible()){focusId=nx.id;renderRunner()}else closeRunner();
   }
   persistRuns();releaseWake();
@@ -3806,6 +4174,7 @@ function removeRun(r,quiet){
   updateRunsUI(true);
 }
 function endRun(r){
+  if(isKid(r))return endRun(parentOf(r));
   if(!r.done){
     tickRuns();
     if(!r.done){logRun(r);if(repeats(r.plan))scheduleNext(r)}
@@ -3838,12 +4207,12 @@ function askEnd(r){
   confirmSheet('End routine?',sec>=5?`You’ve trained ${fmt(sec)}. That time will be added to your chart.`:'Less than 5 seconds in, so nothing will be logged.','End routine',()=>endRun(r),'Keep going');
 }
 function setPaused(r,p){
+  if(isKid(r))return setPaused(parentOf(r),p);
   if(!r||!r.w||!isLive(r))return;
   const now=Date.now();
   if(p&&!r.pausedAt){
     tickRuns();if(r.done)return;
-    r.pausedAt=now;stopTrack(r);
-    if('speechSynthesis' in window)speechSynthesis.cancel();
+    r.pausedAt=now;stopTrack(r);hushCues(r);
   }else if(!p&&r.pausedAt){
     r.anchor+=now-r.pausedAt;r.pausedAt=null;r.tick=now;restartTrack(r);
   }
@@ -3864,8 +4233,15 @@ function beginNow(r){
 /* Seeking moves the anchor, so the clock times follow along. */
 function seekSeg(r,si,ms,cue){
   if(!r?.w||!isLive(r))return;
+  // A subroutine reads its parent's clock, so moving about in it moves the parent.
+  if(isKid(r)){
+    const p=parentOf(r),cs=timeline(r.w).segs[si];
+    if(!p||!p.w||!cs)return;
+    return seekSeg(p,r.pseg,cs.start+Math.max(0,Math.min(ms,cs.dur-50)),cue);
+  }
   const s=timeline(r.w).segs[si];if(!s)return;
   const target=s.start+Math.max(0,Math.min(ms,s.dur-50));
+  hushCues(r);
   r.anchor=(r.pausedAt??Date.now())-target;
   r.jumped=true;r.cueOnJump=!!cue&&!r.pausedAt;r.lastWhole=null;
   if(r.lastSi===si){restartTrack(r);r.cueOnJump=false}
@@ -3882,11 +4258,12 @@ function restartSeg(r){
 }
 /* Back to the very beginning. Time already trained stays counted. */
 function restartRun(r){
+  if(isKid(r))return restartSeg(r);   // back to the top of this subroutine
   if(!r?.w||r.done||isWaiting(r))return;
   const now=Date.now();
   Object.assign(r,{anchor:now,pausedAt:null,tick:now,lastSi:null,lastWhole:null,lastRem:null,
     liveBegin:true,jumped:false,forceLive:false});
-  stopTrack(r);
+  stopTrack(r);hushCues(r);
   tickRuns();persistRuns();
   if(r.id===focusId&&runVisible())renderRunner();
   refreshScreen();haptic(30);
@@ -3901,10 +4278,13 @@ function startAgain(r){
 function jumpRun(r,delta){
   if(!r?.w||!isLive(r))return;
   const tl=timeline(r.w),p=posAt(r.w,elapsedOf(r));
+  // Skipping past either end of a subroutine steps the routine it sits in.
+  if(isKid(r)&&(p.si+delta>=tl.segs.length))return jumpRun(parentOf(r),1);
   if(delta<0&&p.el>2000)return seekSeg(r,p.si,0,false);
   const n=p.si+delta;
   if(n<0)return seekSeg(r,0,0,false);
   if(n>=tl.segs.length){
+    hushCues(r);
     r.forceLive=!r.pausedAt;
     r.anchor=(r.pausedAt??Date.now())-tl.total-1;
     tickRuns();return;
@@ -3994,18 +4374,20 @@ function openRunner(id){
   if(!focusRun())return;
   $('#run').classList.remove('hidden');
   showUpdateBar();
+  navOpen('run',()=>{closeRunner();refreshScreen()});
   renderRunner();
   cancelAnimationFrame(RE.raf);
   const loop=()=>{if(!runVisible())return;drawRunner();RE.raf=requestAnimationFrame(loop)};
   loop();updateRunsUI(true);
 }
 function closeRunner(){
+  navDone('run');
   $('#run').classList.add('hidden');
   showUpdateBar();cancelAnimationFrame(RE.raf);RE.seeking=false;
   $$('#rMedia video').forEach(v=>v.pause());
   updateRunsUI(true);
 }
-function minimizeRunner(){closeRunner();if(screen==='detail'||screen==='settings')show('dash');refreshScreen()}
+function minimizeRunner(){closeRunner();if(screen==='detail'||screen==='settings'){navHome();show('dash')}refreshScreen()}
 function refreshScreen(){
   if(screen==='dash'){renderCards();renderRunsStrip()}
   else if(screen==='detail')renderDetail();
@@ -4016,10 +4398,13 @@ function renderRunner(){
   setTheme(run,w);
   document.documentElement.style.setProperty('--ovl',S.settings.ovl??.45);
   run.classList.toggle('waiting',wait);run.classList.toggle('done',r.done);run.classList.toggle('paused',!!r.pausedAt&&!r.done);
-  $('#rName').textContent=w.name;
+  const kid=isKid(r);
+  $('#rName').innerHTML=kid?`${ui('sub','icon xs')}<span>${esc(w.name)}</span>`:esc(w.name);
+  $('#rName').classList.toggle('nested',kid);
   const multi=runs.length>1;
   $('#rTabs').classList.toggle('hidden',!multi);
-  if(multi)$('#rTabs').innerHTML=runs.map(x=>{const xw=workoutOf(x);return `<button class="rtab ${x.id===focusId?'on':''}" data-tab="${x.id}" style="--tc:${xw?.color||'#888'};--ci:${inkFor(xw?.color)}" aria-pressed="${x.id===focusId}"><i></i><span>${esc(runName(x))}</span><b class="num" data-tt="${x.id}"></b></button>`}).join('');
+  if(multi)$('#rTabs').innerHTML=runs.map(x=>{const xw=workoutOf(x),kid=isKid(x);
+    return `<button class="rtab ${kid?'kid':''} ${x.id===focusId?'on':''}" data-tab="${x.id}" style="--tc:${xw?.color||'#888'};--ci:${inkFor(xw?.color)}" aria-pressed="${x.id===focusId}" aria-label="${esc(runName(x))}${kid?` inside ${esc(hostLabel(x))}`:''}">${kid?ui('sub','sub'):'<i></i>'}<span>${esc(runName(x))}</span><b class="num" data-tt="${x.id}"></b></button>`}).join('');
   const m=$('#rMute');
   m.innerHTML=ui(r.muted?'off':'sound');m.classList.toggle('on',r.muted);
   m.setAttribute('aria-label',r.muted?'Unmute this routine':'Mute this routine');m.setAttribute('aria-pressed',String(r.muted));
@@ -4067,12 +4452,12 @@ function showInterval(r){
   if(tr){
     $('#rTitle').textContent=seg.k===0?'Get ready':out?'Cool-off':'Transition';
     $('#rIcon').innerHTML=out?ui('flag'):iconFor(it);
-    $('#rNext').textContent=out?'The routine ends after this':`Next: ${it.title||`Interval ${p.idx+1}`} for ${fmt(it.duration)}`;
+    $('#rNext').textContent=out?'The routine ends after this':`Next: ${it.title||`Interval ${p.idx+1}`} for ${fmt(durOf(it))}`;
   }else{
     $('#rTitle').textContent=it.title||`Interval ${p.idx+1}`;
     $('#rIcon').innerHTML=iconFor(it);
     const nx=w.intervals[p.idx+1],g=gapAt(w,p.idx+1);
-    $('#rNext').textContent=nx?`Next: ${nx.title||`Interval ${p.idx+2}`} for ${fmt(nx.duration)}${g?`, after ${fmtS(g)}`:''}`:(g?`Then ${fmtS(g)} to finish`:'Last interval');
+    $('#rNext').textContent=nx?`Next: ${nx.title||`Interval ${p.idx+2}`} for ${fmt(durOf(nx))}${g?`, after ${fmtS(g)}`:''}`:(g?`Then ${fmtS(g)} to finish`:'Last interval');
   }
   $('#rRail').innerHTML=railHTML(w,p.idx,true);markOverflow($('#rRail'));
   const media=out?null:it.media;
@@ -4155,7 +4540,11 @@ function drawRunner(force){
   const rem=Math.max(0,d-shownEl);
   const tt=fmt(Math.ceil(rem/1000));
   setT(RE.time,tt,'t');RE.time.classList.toggle('long',tt.length>5);
-  setT(RE.left,`${fmt(Math.ceil((T-el)/1000))} left${RE.tight?'':` · ends ${clockTime(now+T-el)}`}${scaleLabel(r)}`,'l');
+  // Inside a subroutine the useful second fact is which routine you are inside,
+  // not when this stretch ends — the routine that owns it has its own tab for that.
+  const tail=isKid(r)?` · in ${workoutOf(parentOf(r))?.name||'a routine'}`
+    :RE.tight?'':` · ends ${clockTime(now+T-el)}`;
+  setT(RE.left,`${fmt(Math.ceil((T-el)/1000))} left${tail}${scaleLabel(r)}`,'l');
   setS(RE.arc,'strokeDashoffset',(565.49*(1-rem/d)).toFixed(1),'a');
   if(!RE.seeking){const v=(p.el/1000).toFixed(1);if(RE.shown.rv!==v){RE.shown.rv=v;RE.range.value=v}}
   setT(RE.el,fmt(Math.floor(shownEl/1000)),'e');
@@ -4180,9 +4569,15 @@ function runName(r){
   const w=workoutOf(r),same=runs.filter(x=>x.wid===r.wid);
   return (w?.name||'Routine')+(same.length>1?` ${same.indexOf(r)+1}`:'');
 }
+/* The routine a subroutine is standing in for, for labelling. */
+function hostLabel(r){
+  const p=parentOf(r);if(!p||!p.w)return '';
+  const seg=timeline(p.w).segs[r.pseg],it=seg&&p.w.intervals[seg.idx];
+  return it?(it.title||`Interval ${seg.idx+1}`)+' · '+(workoutOf(p)?.name||'Routine'):'';
+}
 function stripRuns(){
   const now=Date.now(),rank=r=>r.done?3:isWaiting(r)?2:r.pausedAt?1:0;
-  return runs.filter(r=>!isWaiting(r)||anchorOf(r)-now<12*3600e3)
+  return runs.filter(r=>!isKid(r)).filter(r=>!isWaiting(r)||anchorOf(r)-now<12*3600e3)
     .sort((a,b)=>rank(a)-rank(b)||anchorOf(a)-anchorOf(b));
 }
 let stripKey='',rowsKey='',lastSec=-1;
@@ -4217,7 +4612,7 @@ function updateRunsUI(force){
   if(lead){
     const host=$('#'+screen);
     if(pill.parentElement!==host)host.appendChild(pill);
-    const w=workoutOf(lead),s=runSummary(lead,now),extra=runs.length-1;
+    const w=workoutOf(lead),s=runSummary(lead,now),extra=runs.filter(x=>!isKid(x)).length-(isKid(lead)?0:1);
     pill.className=s.cls;setTheme(pill,w);
     if(RE.pill!==lead.id+extra){RE.pill=lead.id+extra;$('#mTitle').textContent=runName(lead);$('#mCount').textContent=extra>0?`+${extra}`:''}
     if($('#mTime').textContent!==s.time)$('#mTime').textContent=s.time;
@@ -4227,7 +4622,7 @@ function updateRunsUI(force){
     if(force||runKey(stripRuns())!==stripKey)renderRunsStrip();
     else if(newSec)fillStrip();
   }else if(screen==='detail'){
-    const list=runs.filter(r=>r.wid===detailId);
+    const list=runs.filter(r=>!isKid(r)&&r.wid===detailId);
     if(force||runKey(list)!==rowsKey)renderDetailRuns();
     else if(newSec)fillDetailRuns();
   }
@@ -4246,7 +4641,7 @@ function bindRun(){
   $('#rMute').onclick=()=>{
     const r=focusRun();if(!r)return;
     r.muted=!r.muted;
-    if(r.muted){stopTrack(r);if('speechSynthesis' in window)speechSynthesis.cancel()}else restartTrack(r);
+    if(r.muted){stopTrack(r);hushCues(r)}else restartTrack(r);
     persistRuns();renderRunner();
   };
   $('#rPrev').onclick=()=>jumpRun(focusRun(),-1);
@@ -4258,7 +4653,7 @@ function bindRun(){
     if(isWaiting(r))return beginNow(r);
     setPaused(r,!r.pausedAt);
   };
-  $('#rSync').onclick=()=>{const r=focusRun();if(r&&!r.done)timingSheet({run:r})};
+  $('#rSync').onclick=()=>{const r=focusRun();if(!r||r.done)return;timingSheet({run:isKid(r)?parentOf(r):r})};
   $('#rTabs').onclick=e=>{const t=e.target.closest('[data-tab]');if(!t)return;focusId=t.dataset.tab;RE.seeking=false;renderRunner()};
   $('#rRail').onclick=e=>{
     const s=e.target.closest('[data-j]'),r=focusRun();
@@ -4362,7 +4757,8 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const PWA={prompt:null,sw:null,update:false,installed:matchMedia('(display-mode: standalone)').matches};
+const APP_BUILD='2026.09.19';
+const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
    never interrupted, and the new build is already cached for the next launch. */
@@ -4383,6 +4779,43 @@ function bindUpdate(){
     navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.type==='update-ready')onUpdateReady()});
 }
 const swOK=()=>'serviceWorker' in navigator&&location.protocol.startsWith('http');
+/* Put the question to the worker and wait for its answer, or give up and say so. */
+function swAsk(reg,ms=8000){
+  return new Promise(res=>{
+    const sw=reg.active||navigator.serviceWorker.controller;
+    if(!sw)return res('no-worker');
+    let done=false;
+    const fin=v=>{if(done)return;done=true;clearTimeout(t);res(v)};
+    const ch=new MessageChannel();
+    ch.port1.onmessage=e=>fin((e.data&&e.data.type)||'up-to-date');
+    const t=setTimeout(()=>fin(PWA.update?'update-ready':'no-answer'),ms);
+    try{sw.postMessage({type:'check',url:location.href.split('#')[0],build:APP_BUILD},[ch.port2])}
+    catch(e){fin('check-failed')}
+  });
+}
+/* The Settings button: check now, rather than finding out at the next launch. */
+async function checkForUpdate(){
+  if(PWA.checking)return;
+  PWA.checking=true;
+  if(screen==='settings')renderSettings();
+  try{
+    if(PWA.update){toast('A new version is already waiting — tap Reload');return}
+    const reg=swOK()?await navigator.serviceWorker.getRegistration(new URL('./',location.href)).catch(()=>null):null;
+    if(!reg){
+      // Nothing is holding a copy of this page, so a reload always lands on the newest.
+      toast('Fetching the latest…');
+      try{await fetch(location.href,{cache:'reload'})}catch(e){}
+      location.reload();return;
+    }
+    try{await reg.update()}catch(e){}
+    const res=await swAsk(reg);
+    if(res==='update-ready'){onUpdateReady();toast('A new version is ready — tap Reload')}
+    else if(res==='up-to-date')toast('You’re on the latest version');
+    else if(res==='no-answer')toast('The installed copy is too old to check — reload once, then try again');
+    else toast('Couldn’t reach the site to check');
+  }catch(e){toast('Couldn’t check just now')}
+  finally{PWA.checking=false;if(screen==='settings')renderSettings()}
+}
 async function registerSW(){
   if(!swOK())return false;
   const url=new URL('sw.js',location.href);
@@ -4440,6 +4873,34 @@ self.addEventListener('fetch',e=>{
       return new Response('Offline and not cached yet.',{status:504,headers:{'Content-Type':'text/plain'}});
     }
   }));
+});
+// The app can also ask outright, rather than waiting for the next launch to notice.
+self.addEventListener('message',e=>{
+  const d=e.data||{};
+  if(d.type!=='check')return;
+  const port=e.ports&&e.ports[0],src=e.source;
+  const reply=t=>{try{port?port.postMessage({type:t}):src&&src.postMessage({type:t})}catch(x){}};
+  e.waitUntil((async()=>{
+    try{
+      const url=(d.url||(src&&src.url)||self.location.href).split('#')[0];
+      const c=await caches.open(C);
+      const hit=await c.match(url,{ignoreSearch:true});
+      const r=await fetch(url,{cache:'no-store'});
+      if(!r||!r.ok)return reply('check-failed');
+      const text=await r.clone().text();
+      // The question is whether the site has moved on from the build that is RUNNING,
+      // which the cache cannot answer: it may already hold a newer copy, fetched in
+      // the background, that the open page has not launched into yet.
+      const m=/APP_BUILD=['"]([^'"]*)['"]/.exec(text);
+      let news=!!(m&&d.build&&m[1]!==d.build);
+      if(!news&&hit)news=(await hit.text())!==text;
+      await c.put(url,r);
+      if(!news)return reply('up-to-date');
+      reply('update-ready');
+      const ws=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+      for(const w of ws)if(w!==src)w.postMessage({type:'update-ready'});
+    }catch(err){reply('check-failed')}
+  })());
 });`;
 function setupPWA(){
   try{
@@ -4517,15 +4978,15 @@ function bind(){
   });
   $('#runs').addEventListener('click',e=>{const b=e.target.closest('[data-run]');if(b)openRunner(b.dataset.run)});
   $('#setBtn').onclick=openSettings;
-  $('#sBack').onclick=()=>{show('dash');renderDash()};
-  $('#dBack').onclick=()=>{show('dash');renderDash()};
+  $('#sBack').onclick=closeSettings;
+  $('#dBack').onclick=closeDetail;
   $('#dEdit').onclick=()=>openEditor(detailId,'detail');
   $('#dStart').onclick=()=>playFromCard(detailId);
   $('#dTime').onclick=()=>timingSheet({wid:detailId});
   $('#dAgain').onclick=()=>startNow(detailId);
   $('#dRuns').addEventListener('click',onRunRowAction);
   $('#rng').onclick=e=>{const b=e.target.closest('[data-r]');if(!b)return;S.ui.range=b.dataset.r;S.ui.chartOff=0;save();renderMainChart()};
-  setupPWA();bindDrawer();bindSettings();bindEditor();bindRun();bindCamera();bindDraw();bindWatch();bindSheetDrag();bindUpdate();
+  navInit();setupPWA();bindDrawer();bindSettings();bindEditor();bindRun();bindCamera();bindDraw();bindWatch();bindSheetDrag();bindUpdate();
   let chartFrame=0;
   new ResizeObserver(()=>{cancelAnimationFrame(chartFrame);chartFrame=requestAnimationFrame(renderMainChart)}).observe($('#chart'));
   document.addEventListener('keydown',onKey);
