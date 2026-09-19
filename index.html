@@ -555,6 +555,8 @@ body.sorting .wcard:active,body.sorting .icard:active{background:var(--s1)}
 .srow.col .sl{flex:none}
 .srow.col .seg3{width:100%}
 .srow.col .seg3 button{padding:10px 6px}
+.placerow{margin-bottom:6px}
+.placerow button{padding:11px 6px}
 .druns .dmore{align-self:center;margin-top:2px}
 #watch{position:fixed;inset:0;z-index:55;background:var(--bg);display:flex;flex-direction:column;padding:var(--st) var(--sr) var(--sb) var(--sl)}
 body.watching #sheet{z-index:70}
@@ -1078,8 +1080,9 @@ const Store=(()=>{
     isFresh:ref=>fresh.has(ref),get durable(){return !!idb}};
 })();
 
-const mediaBehind=()=>S.settings.media!=='panel';
-const DEF_SETTINGS={cues:{start:{kind:'none'},end:{kind:'builtin',id:'chime'},done:{kind:'builtin',id:'levelup'},tstart:{kind:'builtin',id:'tick'},tend:{kind:'none'}},countdown:true,volume:.8,haptics:true,wake:true,trans:0,callouts:{mode:'off'},media:'behind',ovl:.45,shrinkVid:false};
+const PLACES=[['behind','Behind the timer'],['panel','Its own panel']];
+const placeOf=m=>m&&m.place==='panel'?'panel':'behind';
+const DEF_SETTINGS={cues:{start:{kind:'none'},end:{kind:'builtin',id:'chime'},done:{kind:'builtin',id:'levelup'},tstart:{kind:'builtin',id:'tick'},tend:{kind:'none'}},countdown:true,volume:.8,haptics:true,wake:true,trans:0,callouts:{mode:'off'},ovl:.45,shrinkVid:false};
 let S={v:4,workouts:[],history:[],archive:[],runs:[],settings:structuredClone(DEF_SETTINGS),ui:{dashFab:'right',editFab:'right',range:'d7',arch:'d30',drawer:'peek',hide:[],hideA:[],avg:true,avgA:true,avgWin:0,avgWinA:0,chartOff:0,chartOffA:0}};
 function save(){Store.saveState(S)}
 /* Brings any older saved state up to date. History from routines that no longer exist
@@ -1096,9 +1099,12 @@ function migrate(v){
   if(!/^[dwm]\d+$/.test(s.ui.arch||''))s.ui.arch='d30';
   s.ui.chartOff=Math.max(0,+s.ui.chartOff||0);s.ui.chartOffA=Math.max(0,+s.ui.chartOffA||0);
   if(typeof s.settings.trans!=='number'||!(s.settings.trans>=0))s.settings.trans=0;
-  /* was a yes/no "show at full size"; now a named layout */
-  if(!['panel','behind'].includes(s.settings.media))s.settings.media=s.settings.bleed===false?'panel':'behind';
-  delete s.settings.bleed;
+  /* "show at full size", then an app-wide layout, is now set per interval: carry
+     whichever was chosen onto the media that already exists. */
+  const wasPanel=s.settings.media==='panel'||s.settings.bleed===false;
+  if(wasPanel&&!s.placed)for(const w of s.workouts)for(const it of w.intervals)if(it.media&&!it.media.place)it.media.place='panel';
+  s.placed=true;
+  delete s.settings.media;delete s.settings.bleed;
   s.workouts=(Array.isArray(s.workouts)?s.workouts:[]).map(normRoutine);
   const ids=new Set(s.workouts.map(w=>w.id));
   const hist=(Array.isArray(s.history)?s.history:[]).filter(e=>e&&e.date&&e.workoutId).map(e=>e.id?e:{...e,id:uid()});
@@ -2351,7 +2357,7 @@ function timingSheet({wid=null,run=null}){
 let archRO=null;
 function openSettings(){show('settings');renderSettings();$('#setList').scrollTop=0}
 function renderSettings(){
-  const s=S.settings,behind=mediaBehind();
+  const s=S.settings;
   const sw=(k,label,on,sub='')=>`<button class="srow" role="switch" aria-checked="${!!on}" data-set="${k}"><span class="sl">${label}${sub?`<small>${sub}</small>`:''}</span><span class="switch"></span></button>`;
   const row=(k,ic,label,val,cls='',dis=false)=>`<button class="srow ${cls}" data-set="${k}" ${dis?'disabled':''}>${ui(ic)}<span class="sl">${label}</span><span class="val">${esc(val)}</span></button>`;
   $('#setList').innerHTML=`
@@ -2368,14 +2374,8 @@ function renderSettings(){
     </section>
     <section class="sgroup"><h5>During routines</h5>
       ${row('trans','gap','Transition between intervals',s.trans?fmtS(s.trans):'Off')}
-      <div class="srow col"><span class="sl">Where media sits${behind?'<small>Behind the timer and the interval card, full size</small>':'<small>In its own panel above the timer, with the controls around it</small>'}</span>
-        <div class="seg3" id="setMedia">
-          <button data-set="media:panel" class="${behind?'':'on'}" aria-pressed="${!behind}">${ui('image','icon sm')}Its own panel</button>
-          <button data-set="media:behind" class="${behind?'on':''}" aria-pressed="${behind}">${ui('video','icon sm')}Behind the timer</button>
-        </div>
-      </div>
-      ${behind?`<label class="srow">${ui('image')}<span class="sl">Overlay strength</span><input type="range" id="setOvl" min="0" max="0.9" step="0.05" value="${s.ovl}"></label>`:''}
-      <p class="snote">How each picture sits in that space — filled, fitted, stretched — is set per interval in the editor.</p>
+      <label class="srow">${ui('image')}<span class="sl">Overlay strength<small>How much the timer dims media sitting behind it</small></span><input type="range" id="setOvl" min="0" max="0.9" step="0.05" value="${s.ovl}"></label>
+      <p class="snote">Where each picture sits, and how it fills that space, is set on the interval itself — tap its image in the editor.</p>
       ${sw('haptics','Vibration',s.haptics,'On interval changes, where supported')}
       ${sw('wake','Keep the screen on',s.wake)}
     </section>
@@ -2419,12 +2419,7 @@ function settingAction(k,el){
   const s=S.settings;
   if(k.startsWith('cue:'))return cueSheet({scope:'global',which:k.slice(4)},renderSettings);
   if(k==='callouts')return calloutSheet('global',null,null,renderSettings);
-  if(k.startsWith('media:')){
-    s.media=k.slice(6);save();renderSettings();
-    if(runVisible())renderRunner();
-    if(E)renderEditor();
-    return;
-  }
+
   if(k==='shrinkVid'){s.shrinkVid=!s.shrinkVid;el.setAttribute('aria-checked',String(s.shrinkVid));save();return}
   if(k==='countdown'||k==='haptics'||k==='wake'){
     s[k]=!s[k];el.setAttribute('aria-checked',String(s[k]));save();
@@ -2783,7 +2778,7 @@ function renderEditor(){
   const keep=new Map();
   $$('#ilist .mslot>[data-k]').forEach(el=>keep.set(el.dataset.k,el));
   list.innerHTML=gapBtn(0)+w.intervals.map((it,i)=>`
-    <section class="icard ${it.media&&mediaBehind()?'art':''}" data-i="${i}">
+    <section class="icard ${it.media&&placeOf(it.media)==='behind'?'art':''}" data-i="${i}">
       <button class="grip" aria-label="Reorder interval ${i+1}"></button>
       <div class="ititle">
         <button class="iconpick ${it.icon||it.iconImg?'set':''}" data-act="icon" aria-label="Choose icon">${it.icon||it.iconImg?iconFor(it):ui('plus')}</button>
@@ -2984,7 +2979,7 @@ async function setMedia(it,blob,type){
     if(!key)return;
     if(!owned(it)){Store.remove(key);return}
     const old=it.media;
-    it.media={key,type,fit:old?.fit||'contain'};
+    it.media={key,type,fit:old?.fit||'contain',...(old?.place?{place:old.place}:{})};
     releaseMedia([old?.key]);
   }finally{busy.delete(tag);if(owned(it))changed(it)}
 }
@@ -3080,7 +3075,10 @@ async function matchDuration(it,which){
 function mediaSheet(it){
   const has=!!it.media,img=it.media?.type==='image';
   openSheet(`<h4>${has?'Image or video':'Add image or video'}</h4>
-    ${has?`<div class="sect">Fit to card</div><div class="fitrow">${FITS.map(([k,n])=>`<button data-keep="fit:${k}" class="fit-${k} ${(it.media.fit||'cover')===k?'on':''}"><i></i>${n}</button>`).join('')}</div><div class="sect">Replace</div>`:''}
+    ${has?`<div class="sect">Where it sits while this interval runs</div>
+      <div class="seg3 placerow">${PLACES.map(([k,n])=>`<button data-keep="place:${k}" class="${placeOf(it.media)===k?'on':''}" aria-pressed="${placeOf(it.media)===k}">${ui(k==='behind'?'video':'image','icon sm')}${n}</button>`).join('')}</div>
+      <div class="sect">How it fills that space</div><div class="fitrow">${FITS.map(([k,n])=>`<button data-keep="fit:${k}" class="fit-${k} ${(it.media.fit||'contain')===k?'on':''}"><i></i>${n}</button>`).join('')}</div>
+      <div class="sect">Replace</div>`:''}
     <div class="menu">
       <button data-v="photo">${ui('camera')}Take photo</button>
       <button data-v="video">${ui('video')}Record video</button>
@@ -3099,10 +3097,14 @@ function mediaSheet(it){
     if(v==='icon')iconFromMedia(it);
     if(v==='rm'){const k=it.media.key;it.media=null;renderEditor();releaseMedia([k])}
   },{onKeep:(v,el)=>{
-    if(!v.startsWith('fit:'))return;
-    it.media.fit=v.slice(4);
-    $$('.fitrow button').forEach(b=>b.classList.toggle('on',b===el));
-    renderEditor();
+    if(v.startsWith('place:')){
+      if(v.slice(6)==='panel')it.media.place='panel';else delete it.media.place;
+      $$('.placerow button').forEach(b=>{const on=b===el;b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on))});
+    }else if(v.startsWith('fit:')){
+      it.media.fit=v.slice(4);
+      $$('.fitrow button').forEach(b=>b.classList.toggle('on',b===el));
+    }else return;
+    changed(it);
   }});
 }
 function trackSheet(it){
@@ -4012,7 +4014,7 @@ function showInterval(r){
   $('#rRail').innerHTML=railHTML(w,p.idx,true);markOverflow($('#rRail'));
   const media=out?null:it.media;
   run.classList.toggle('nomedia',!media);
-  run.classList.toggle('bleed',!!media&&mediaBehind());
+  run.classList.toggle('bleed',!!media&&placeOf(media)==='behind');
   railGeo();
   RE.range.max=String(seg.dur/1000);RE.range.step=seg.dur>120000?'1':'0.1';
   RE.range.setAttribute('aria-label',tr?'Position in this transition':'Position in this interval');
