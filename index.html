@@ -502,7 +502,8 @@ body.sorting .wcard:active,body.sorting .icard:active{background:var(--s1)}
 /* Full-size media is a backdrop. It never takes a tap, and every control is layered
    above it, or the whole screen becomes unclickable while a clip plays. */
 #run.bleed .rmedia{position:absolute;inset:0;margin:0;border-radius:0;background:transparent;z-index:0;flex:none;max-width:none;height:auto;pointer-events:none}
-#run.bleed .rhead,#run.bleed .rtabs,#run.bleed .rstage,#run.bleed .rrail,#run.bleed .rctrl{position:relative;z-index:1}
+#run.bleed .rhead,#run.bleed .rtabs,#run.bleed .rrail,#run.bleed .rctrl{position:relative;z-index:1}
+#run.bleed .rstage{z-index:1}
 #run.bleed .rstage{--rw:min(78cqw,calc(100cqh - 82px),360px)}
 #run.bleed .rcore{position:relative;z-index:1;--scrim:color-mix(in srgb,var(--bg) calc(var(--ovl,.45)*100%),transparent)}
 #run.bleed .ring{background:radial-gradient(circle,var(--scrim) 58%,color-mix(in srgb,var(--bg) calc(var(--ovl,.45)*55%),transparent) 72%,transparent 80%)}
@@ -550,6 +551,10 @@ body.sorting .wcard:active,body.sorting .icard:active{background:var(--s1)}
 .avgrow .wlab{color:var(--mu);font-size:12px;white-space:nowrap}
 .chart .avg{fill:none}
 .sgroup .avgrow{padding:6px 10px 0}
+.srow.col{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+.srow.col .sl{flex:none}
+.srow.col .seg3{width:100%}
+.srow.col .seg3 button{padding:10px 6px}
 .druns .dmore{align-self:center;margin-top:2px}
 #watch{position:fixed;inset:0;z-index:55;background:var(--bg);display:flex;flex-direction:column;padding:var(--st) var(--sr) var(--sb) var(--sl)}
 body.watching #sheet{z-index:70}
@@ -1073,7 +1078,8 @@ const Store=(()=>{
     isFresh:ref=>fresh.has(ref),get durable(){return !!idb}};
 })();
 
-const DEF_SETTINGS={cues:{start:{kind:'none'},end:{kind:'builtin',id:'chime'},done:{kind:'builtin',id:'levelup'},tstart:{kind:'builtin',id:'tick'},tend:{kind:'none'}},countdown:true,volume:.8,haptics:true,wake:true,trans:0,callouts:{mode:'off'},bleed:true,ovl:.45,shrinkVid:false};
+const mediaBehind=()=>S.settings.media!=='panel';
+const DEF_SETTINGS={cues:{start:{kind:'none'},end:{kind:'builtin',id:'chime'},done:{kind:'builtin',id:'levelup'},tstart:{kind:'builtin',id:'tick'},tend:{kind:'none'}},countdown:true,volume:.8,haptics:true,wake:true,trans:0,callouts:{mode:'off'},media:'behind',ovl:.45,shrinkVid:false};
 let S={v:4,workouts:[],history:[],archive:[],runs:[],settings:structuredClone(DEF_SETTINGS),ui:{dashFab:'right',editFab:'right',range:'d7',arch:'d30',drawer:'peek',hide:[],hideA:[],avg:true,avgA:true,avgWin:0,avgWinA:0,chartOff:0,chartOffA:0}};
 function save(){Store.saveState(S)}
 /* Brings any older saved state up to date. History from routines that no longer exist
@@ -1090,6 +1096,9 @@ function migrate(v){
   if(!/^[dwm]\d+$/.test(s.ui.arch||''))s.ui.arch='d30';
   s.ui.chartOff=Math.max(0,+s.ui.chartOff||0);s.ui.chartOffA=Math.max(0,+s.ui.chartOffA||0);
   if(typeof s.settings.trans!=='number'||!(s.settings.trans>=0))s.settings.trans=0;
+  /* was a yes/no "show at full size"; now a named layout */
+  if(!['panel','behind'].includes(s.settings.media))s.settings.media=s.settings.bleed===false?'panel':'behind';
+  delete s.settings.bleed;
   s.workouts=(Array.isArray(s.workouts)?s.workouts:[]).map(normRoutine);
   const ids=new Set(s.workouts.map(w=>w.id));
   const hist=(Array.isArray(s.history)?s.history:[]).filter(e=>e&&e.date&&e.workoutId).map(e=>e.id?e:{...e,id:uid()});
@@ -2342,7 +2351,7 @@ function timingSheet({wid=null,run=null}){
 let archRO=null;
 function openSettings(){show('settings');renderSettings();$('#setList').scrollTop=0}
 function renderSettings(){
-  const s=S.settings;
+  const s=S.settings,behind=mediaBehind();
   const sw=(k,label,on,sub='')=>`<button class="srow" role="switch" aria-checked="${!!on}" data-set="${k}"><span class="sl">${label}${sub?`<small>${sub}</small>`:''}</span><span class="switch"></span></button>`;
   const row=(k,ic,label,val,cls='',dis=false)=>`<button class="srow ${cls}" data-set="${k}" ${dis?'disabled':''}>${ui(ic)}<span class="sl">${label}</span><span class="val">${esc(val)}</span></button>`;
   $('#setList').innerHTML=`
@@ -2359,8 +2368,14 @@ function renderSettings(){
     </section>
     <section class="sgroup"><h5>During routines</h5>
       ${row('trans','gap','Transition between intervals',s.trans?fmtS(s.trans):'Off')}
-      ${sw('bleed','Show media at full size',s.bleed,'The whole picture behind the timer and on interval cards')}
-      <label class="srow">${ui('image')}<span class="sl">Overlay strength</span><input type="range" id="setOvl" min="0" max="0.9" step="0.05" value="${s.ovl}"></label>
+      <div class="srow col"><span class="sl">Where media sits${behind?'<small>Behind the timer and the interval card, full size</small>':'<small>In its own panel above the timer, with the controls around it</small>'}</span>
+        <div class="seg3" id="setMedia">
+          <button data-set="media:panel" class="${behind?'':'on'}" aria-pressed="${!behind}">${ui('image','icon sm')}Its own panel</button>
+          <button data-set="media:behind" class="${behind?'on':''}" aria-pressed="${behind}">${ui('video','icon sm')}Behind the timer</button>
+        </div>
+      </div>
+      ${behind?`<label class="srow">${ui('image')}<span class="sl">Overlay strength</span><input type="range" id="setOvl" min="0" max="0.9" step="0.05" value="${s.ovl}"></label>`:''}
+      <p class="snote">How each picture sits in that space — filled, fitted, stretched — is set per interval in the editor.</p>
       ${sw('haptics','Vibration',s.haptics,'On interval changes, where supported')}
       ${sw('wake','Keep the screen on',s.wake)}
     </section>
@@ -2404,7 +2419,12 @@ function settingAction(k,el){
   const s=S.settings;
   if(k.startsWith('cue:'))return cueSheet({scope:'global',which:k.slice(4)},renderSettings);
   if(k==='callouts')return calloutSheet('global',null,null,renderSettings);
-  if(k==='bleed'){s.bleed=!s.bleed;el.setAttribute('aria-checked',String(s.bleed));save();if(runVisible())renderRunner();return}
+  if(k.startsWith('media:')){
+    s.media=k.slice(6);save();renderSettings();
+    if(runVisible())renderRunner();
+    if(E)renderEditor();
+    return;
+  }
   if(k==='shrinkVid'){s.shrinkVid=!s.shrinkVid;el.setAttribute('aria-checked',String(s.shrinkVid));save();return}
   if(k==='countdown'||k==='haptics'||k==='wake'){
     s[k]=!s[k];el.setAttribute('aria-checked',String(s[k]));save();
@@ -2763,7 +2783,7 @@ function renderEditor(){
   const keep=new Map();
   $$('#ilist .mslot>[data-k]').forEach(el=>keep.set(el.dataset.k,el));
   list.innerHTML=gapBtn(0)+w.intervals.map((it,i)=>`
-    <section class="icard ${it.media&&S.settings.bleed!==false?'art':''}" data-i="${i}">
+    <section class="icard ${it.media&&mediaBehind()?'art':''}" data-i="${i}">
       <button class="grip" aria-label="Reorder interval ${i+1}"></button>
       <div class="ititle">
         <button class="iconpick ${it.icon||it.iconImg?'set':''}" data-act="icon" aria-label="Choose icon">${it.icon||it.iconImg?iconFor(it):ui('plus')}</button>
@@ -3992,7 +4012,7 @@ function showInterval(r){
   $('#rRail').innerHTML=railHTML(w,p.idx,true);markOverflow($('#rRail'));
   const media=out?null:it.media;
   run.classList.toggle('nomedia',!media);
-  run.classList.toggle('bleed',!!media&&S.settings.bleed!==false);
+  run.classList.toggle('bleed',!!media&&mediaBehind());
   railGeo();
   RE.range.max=String(seg.dur/1000);RE.range.step=seg.dur>120000?'1':'0.1';
   RE.range.setAttribute('aria-label',tr?'Position in this transition':'Position in this interval');
@@ -4001,7 +4021,7 @@ function showInterval(r){
   box.replaceChildren();
   if(media)Store.url(media.key).then(src=>{
     if(RE.mtok!==tok)return;
-    box.replaceChildren(src?mediaEl(media.type,src,run.classList.contains('bleed')?'contain':media.fit):missingEl());
+    box.replaceChildren(src?mediaEl(media.type,src,media.fit):missingEl());
     if(r.pausedAt||!runVisible())box.querySelectorAll('video').forEach(v=>v.pause());
   });
 }
