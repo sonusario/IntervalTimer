@@ -493,15 +493,16 @@ body.sorting .wcard:active,body.sorting .icard:active{background:var(--s1)}
 /* Card art: the picture fills the card and the controls float over it. */
 .icard.art{overflow:hidden}
 .icard.art .media{position:absolute;inset:0;width:auto;aspect-ratio:auto;max-height:none;border:0;border-radius:var(--r);background:#0b0d14;z-index:0}
-.icard.art .media .mslot img,.icard.art .media .mslot video{object-fit:contain!important}
 .icard.art .ibody{min-height:150px;align-items:end}
 .icard.art .ibody>div{justify-content:flex-end}
 .icard.art .ititle,.icard.art .audio,.icard.art .cue,.icard.art .clockmini,.icard.art .fitbadge,.icard.art .media>.x{position:relative;z-index:1}
 .icard.art .ititle,.icard.art .audio,.icard.art .cue{background:color-mix(in srgb,var(--s1) calc(35% + var(--ovl,.45)*60%),transparent);border-radius:12px}
 .icard.art .ititle{padding:4px 6px;margin:-4px -6px 0}
 .icard.art .clockmini{filter:drop-shadow(0 3px 10px rgba(0,0,0,.65))}
-#run.bleed .rmedia{position:absolute;inset:0;margin:0;border-radius:0;background:transparent;z-index:0;flex:none;max-width:none;height:auto}
-#run.bleed .rmedia img,#run.bleed .rmedia video{object-fit:contain}
+/* Full-size media is a backdrop. It never takes a tap, and every control is layered
+   above it, or the whole screen becomes unclickable while a clip plays. */
+#run.bleed .rmedia{position:absolute;inset:0;margin:0;border-radius:0;background:transparent;z-index:0;flex:none;max-width:none;height:auto;pointer-events:none}
+#run.bleed .rhead,#run.bleed .rtabs,#run.bleed .rstage,#run.bleed .rrail,#run.bleed .rctrl{position:relative;z-index:1}
 #run.bleed .rstage{--rw:min(78cqw,calc(100cqh - 82px),360px)}
 #run.bleed .rcore{position:relative;z-index:1;--scrim:color-mix(in srgb,var(--bg) calc(var(--ovl,.45)*100%),transparent)}
 #run.bleed .ring{background:radial-gradient(circle,var(--scrim) 58%,color-mix(in srgb,var(--bg) calc(var(--ovl,.45)*55%),transparent) 72%,transparent 80%)}
@@ -2963,7 +2964,7 @@ async function setMedia(it,blob,type){
     if(!key)return;
     if(!owned(it)){Store.remove(key);return}
     const old=it.media;
-    it.media={key,type,fit:old?.fit||'cover'};
+    it.media={key,type,fit:old?.fit||'contain'};
     releaseMedia([old?.key]);
   }finally{busy.delete(tag);if(owned(it))changed(it)}
 }
