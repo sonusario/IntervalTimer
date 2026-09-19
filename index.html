@@ -1072,7 +1072,7 @@ const Store=(()=>{
     isFresh:ref=>fresh.has(ref),get durable(){return !!idb}};
 })();
 
-const DEF_SETTINGS={cues:{start:{kind:'none'},end:{kind:'builtin',id:'chime'},done:{kind:'builtin',id:'levelup'},tstart:{kind:'builtin',id:'tick'},tend:{kind:'none'}},countdown:true,volume:.8,haptics:true,wake:true,trans:0,callouts:{mode:'off'},bleed:true,ovl:.45};
+const DEF_SETTINGS={cues:{start:{kind:'none'},end:{kind:'builtin',id:'chime'},done:{kind:'builtin',id:'levelup'},tstart:{kind:'builtin',id:'tick'},tend:{kind:'none'}},countdown:true,volume:.8,haptics:true,wake:true,trans:0,callouts:{mode:'off'},bleed:true,ovl:.45,shrinkVid:false};
 let S={v:4,workouts:[],history:[],archive:[],runs:[],settings:structuredClone(DEF_SETTINGS),ui:{dashFab:'right',editFab:'right',range:'d7',arch:'d30',drawer:'peek',hide:[],hideA:[],avg:true,avgA:true,avgWin:0,avgWinA:0,chartOff:0,chartOffA:0}};
 function save(){Store.saveState(S)}
 /* Brings any older saved state up to date. History from routines that no longer exist
@@ -1111,7 +1111,7 @@ function normRoutine(w){
 }
 
 /* ---------- Media bookkeeping ---------- */
-const busy=new Set();
+const busy=new Set(),busyMsg=new Map();
 const keysOf=w=>[w.cues?.start?.key,w.cues?.end?.key,w.cues?.done?.key,w.cues?.tstart?.key,w.cues?.tend?.key,...w.intervals.flatMap(i=>[i.media?.key,i.audio?.key,i.cues?.start?.key,i.cues?.end?.key])].filter(Boolean);
 function mediaInUse(key){
   const all=[...S.workouts.filter(w=>!E||w.id!==E.w.id),...(E?[E.w]:[]),...runs.map(r=>r.w).filter(Boolean)];
@@ -2374,6 +2374,7 @@ function renderSettings(){
     <section class="sgroup"><h5>Your data</h5>
       ${row('delHistory','trash','Delete all routine history',plural(S.history.length,'session'),'red',!S.history.length)}
       ${row('delWorkouts','trash','Delete all routines',plural(S.workouts.length,'routine'),'red',!S.workouts.length)}
+      ${sw('shrinkVid','Shrink videos when adding',s.shrinkVid,'Smaller files, a little softer; sound is dropped either way')}
       ${row('export','download','Save a backup file','')}
       ${row('import','upload','Restore from a backup','')}
       ${row('install','download','Install as an app',PWA.installed?'Installed':PWA.prompt?'Ready':'How to')}
@@ -2403,6 +2404,7 @@ function settingAction(k,el){
   if(k.startsWith('cue:'))return cueSheet({scope:'global',which:k.slice(4)},renderSettings);
   if(k==='callouts')return calloutSheet('global',null,null,renderSettings);
   if(k==='bleed'){s.bleed=!s.bleed;el.setAttribute('aria-checked',String(s.bleed));save();if(runVisible())renderRunner();return}
+  if(k==='shrinkVid'){s.shrinkVid=!s.shrinkVid;el.setAttribute('aria-checked',String(s.shrinkVid));save();return}
   if(k==='countdown'||k==='haptics'||k==='wake'){
     s[k]=!s[k];el.setAttribute('aria-checked',String(s[k]));save();
     if(k==='haptics'&&s.haptics)buzz(20);
@@ -2771,7 +2773,7 @@ function renderEditor(){
       <div class="ibody">
         <div>
           <button class="media ${it.media?'has':''} ${busy.has(it.id+':m')?'busy':''}" data-act="media" aria-label="${it.media?'Image or video options':'Add image or video'}">
-            ${busy.has(it.id+':m')?`${ui('upload')}<span>Saving…</span>`:it.media?`<div class="mslot"></div><span class="fitbadge">${fitName(it.media.fit)}</span><span class="x" data-act="rmmedia" role="button" aria-label="Remove media">${ui('close','icon sm')}</span>`:`${ui('image')}<span>Photo, GIF or video</span>`}
+            ${busy.has(it.id+':m')?`${ui('upload')}<span>${esc(busyMsg.get(it.id+':m')||'Saving…')}</span>`:it.media?`<div class="mslot"></div><span class="fitbadge">${fitName(it.media.fit)}</span><span class="x" data-act="rmmedia" role="button" aria-label="Remove media">${ui('close','icon sm')}</span>`:`${ui('image')}<span>Photo, GIF or video</span>`}
           </button>
           <button class="audio ${it.audio?'has':''} ${busy.has(it.id+':a')?'busy':''}" data-act="audio" aria-label="${it.audio?'Preview audio track':'Add audio track'}">
             ${ui('music','icon sm')}${busy.has(it.id+':a')?'<span>Saving audio…</span>':it.audio?`${waveSVG(it.audio.peaks)}<span class="xa" data-act="rmaudio" role="button" aria-label="Remove audio track">${ui('close','icon sm')}</span>`:'<span>Add audio track</span>'}
@@ -2841,10 +2843,120 @@ async function togglePreview(i,btn){
   if(!p.h)return stopPreview();
   p.h.onended=()=>{if(preview===p)stopPreview()};
 }
+const MB=1048576;
+const sizeLabel=b=>b>=MB?`${(b/MB).toFixed(b>=10*MB?0:1)} MB`:`${Math.max(1,Math.round(b/1024))} KB`;
+/* Media is copied into this browser's own storage rather than left on the device, so
+   that it survives a reload and rides along in a backup. The only real limit is how
+   much room the browser gives us, so ask it instead of guessing a number. */
+async function roomFor(bytes){
+  const est=await Store.estimate();
+  if(!est||!est.quota)return{ok:true,free:null};
+  const free=est.quota-(est.usage||0);
+  return{ok:bytes<free*.8,free};
+}
+const VID_EDGE=1280,VID_BITS=2500000;
+/* Re-encode a video smaller, the way prepImage does for stills. Playback drives the
+   encoder, so this takes about as long as the clip itself. Card video is always muted,
+   so the audio track is dropped. */
+async function shrinkVideo(blob,onProgress){
+  if(!window.MediaRecorder)return null;
+  const dur=await blobDuration(blob);
+  const url=URL.createObjectURL(blob),v=document.createElement('video');
+  v.muted=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';v.src=url;
+  try{
+    await new Promise((res,rej)=>{
+      v.onloadedmetadata=res;v.onerror=()=>rej(new Error('decode'));
+      setTimeout(()=>rej(new Error('timeout')),20000);
+    });
+    const W=v.videoWidth,Hh=v.videoHeight;
+    if(!W||!Hh)throw new Error('no size');
+    const k=Math.min(1,VID_EDGE/Math.max(W,Hh));
+    const c=document.createElement('canvas');
+    c.width=Math.max(2,Math.round(W*k/2)*2);c.height=Math.max(2,Math.round(Hh*k/2)*2);
+    const g=c.getContext('2d',{alpha:false});
+    if(!c.captureStream)throw new Error('no captureStream');
+    const stream=c.captureStream(30);
+    const mime=pickMime(['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4']);
+    /* Aim below whatever the source was actually using, so a modest clip never comes
+       back bigger than it went in. */
+    const srcBits=dur>0?blob.size*8/dur:0;
+    const bits=Math.round(Math.max(400000,Math.min(VID_BITS,srcBits?srcBits*.7:VID_BITS)));
+    const rec=new MediaRecorder(stream,{...(mime?{mimeType:mime}:{}),videoBitsPerSecond:bits});
+    const chunks=[];
+    rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+    const stopped=new Promise(r=>{rec.onstop=r});
+    g.drawImage(v,0,0,c.width,c.height);
+    rec.start(500);
+    await v.play();
+    await new Promise(res=>{
+      let raf=0;
+      const finish=()=>{cancelAnimationFrame(raf);res()};
+      const draw=()=>{
+        if(v.ended)return finish();
+        g.drawImage(v,0,0,c.width,c.height);
+        if(dur)onProgress?.(Math.min(.99,v.currentTime/dur));
+        raf=requestAnimationFrame(draw);
+      };
+      v.onended=finish;
+      setTimeout(finish,Math.min(15*60000,(dur||10)*1000+8000));
+      draw();
+    });
+    try{v.pause()}catch(e){}
+    if(rec.state!=='inactive')rec.stop();
+    await stopped;
+    stream.getTracks().forEach(t=>t.stop());
+    const out=new Blob(chunks,{type:mime||'video/webm'});
+    return out.size>1000&&out.size<blob.size?out:null;
+  }catch(e){return null}
+  finally{URL.revokeObjectURL(url);v.removeAttribute('src');v.load?.()}
+}
+/* Decide what to store for a chosen video: as-is when there is room, otherwise offer
+   to shrink it. Returns the blob to keep, or null if the person backed out. */
+async function prepVideo(blob,tag){
+  const auto=S.settings.shrinkVid&&blob.size>8*MB;
+  const room=await roomFor(blob.size);
+  if(!auto&&room.ok)return blob;
+  const run=async()=>{
+    busyMsg.set(tag,'Shrinking 0%');if(E)renderEditor();
+    const out=await shrinkVideo(blob,p=>{
+      const t=`Shrinking ${Math.round(p*100)}%`;
+      if(busyMsg.get(tag)!==t){busyMsg.set(tag,t);const el=$(`#ilist .icard [data-act="media"].busy span`);if(el)el.textContent=t}
+    });
+    busyMsg.delete(tag);
+    if(out)toast(`Shrunk to ${sizeLabel(out.size)} from ${sizeLabel(blob.size)}`);
+    return out;
+  };
+  if(auto)return(await run())||(room.ok?blob:null);
+  const free=room.free==null?'':` Only about ${sizeLabel(room.free)} is free.`;
+  const choice=await new Promise(res=>{
+    let done=false;const pick=v=>{if(!done){done=true;res(v)}};
+    openSheet(`<h4>That video is large</h4>
+      <p>It is ${esc(sizeLabel(blob.size))}, which does not fit in the space this browser gives the app.${esc(free)}</p>
+      <div class="menu">
+        <button data-v="shrink">${ui('video')}Shrink it to fit<span class="val">about ${esc(sizeLabel(Math.min(blob.size*.12,6*MB)))}</span></button>
+        <button data-v="cancel">${ui('close')}Don’t add it</button>
+      </div>
+      <p class="small">Shrinking re-records the clip at a smaller size. It takes about as long as the clip runs, and sound is dropped — card video is always silent.</p>`,
+      v=>pick(v),{onClose:()=>pick('cancel')});
+  });
+  if(choice!=='shrink')return null;
+  const out=await run();
+  if(out&&(await roomFor(out.size)).ok)return out;
+  toast(out?'Still not enough room to save that':'Could not shrink that video here');
+  return null;
+}
 async function setMedia(it,blob,type){
   if(!blob)return;
-  if(type==='video'&&blob.size>20*1024*1024)return toast('Videos need to be under 20 MB');
-  const tag=it.id+':m';busy.add(tag);if(E)renderEditor();
+  const tag=it.id+':m';
+  if(type==='video'){
+    busy.add(tag);if(E)renderEditor();
+    let ready;
+    try{ready=await prepVideo(blob,tag)}
+    finally{busy.delete(tag);busyMsg.delete(tag);if(owned(it)&&E)renderEditor()}
+    if(!ready)return;
+    blob=ready;
+  }
+  busy.add(tag);busyMsg.set(tag,'Saving…');if(E)renderEditor();
   try{
     const body=type==='image'?await prepImage(blob):blob;
     const key=await Store.putBlob(body,type);
@@ -2857,7 +2969,7 @@ async function setMedia(it,blob,type){
 }
 async function setTrack(it,blob){
   if(!blob)return;
-  if(blob.size>12*1024*1024)return toast('Audio needs to be under 12 MB');
+  if(!(await roomFor(blob.size)).ok)return toast(`No room to save ${sizeLabel(blob.size)} of audio`);
   stopPreview();
   const tag=it.id+':a';busy.add(tag);if(E)renderEditor();
   try{
@@ -2883,22 +2995,54 @@ async function setSynthTrack(it,p){
 
 /* Length of an attached video, or of an audio track (synth included). */
 const durCache=new Map();
+/* Video recorded by a browser (the in-app camera, or a shrunk clip) carries no length
+   in its header, so duration reads back as Infinity. Seeking past the end and asking
+   where we landed gives the real length. */
+function videoDuration(v){
+  if(isFinite(v.duration)&&v.duration>0)return Promise.resolve(v.duration);
+  return new Promise(res=>{
+    let done=false;
+    const end=x=>{if(done)return;done=true;v.onseeked=null;res(isFinite(x)&&x>0?x:0)};
+    v.onseeked=()=>{const d=v.currentTime;try{v.currentTime=0}catch(e){}end(d)};
+    try{v.currentTime=1e7}catch(e){return end(0)}
+    setTimeout(()=>end(isFinite(v.duration)?v.duration:0),4000);
+  });
+}
+/* Probe a blob's length on its own element, so seeking never disturbs playback. */
+async function blobDuration(blob){
+  const url=URL.createObjectURL(blob),v=document.createElement('video');
+  v.preload='metadata';v.muted=true;v.playsInline=true;
+  try{
+    const got=await new Promise(res=>{
+      let done=false;const end=x=>{if(!done){done=true;res(x)}};
+      v.onloadedmetadata=()=>end(true);v.onerror=()=>end(false);
+      setTimeout(()=>end(false),8000);
+      v.src=url;
+    });
+    return got?await videoDuration(v):0;
+  }catch(e){return 0}
+  finally{URL.revokeObjectURL(url);v.removeAttribute('src');v.load?.()}
+}
 function mediaSeconds(m){
   if(!m?.key)return Promise.resolve(0);
   if(!durCache.has(m.key)){
     durCache.set(m.key,(async()=>{
       if(m.type!=='video'){const b=await audioBuffer(m.key);return b?b.duration:0}
       const src=await Store.url(m.key);if(!src)return 0;
-      return await new Promise(res=>{
-        const v=document.createElement('video');
+      const v=document.createElement('video');
+      v.preload='metadata';v.muted=true;v.playsInline=true;
+      const meta=new Promise(res=>{
         let done=false;
-        const end=x=>{if(!done){done=true;res(isFinite(x)&&x>0?x:0)}};
-        v.preload='metadata';v.muted=true;
-        v.onloadedmetadata=()=>end(v.duration);
-        v.onerror=()=>end(0);
-        setTimeout(()=>end(v.duration),4000);
+        const end=okv=>{if(!done){done=true;res(okv)}};
+        v.onloadedmetadata=()=>end(true);
+        v.onerror=()=>end(false);
+        setTimeout(()=>end(false),6000);
         v.src=src;
       });
+      if(!await meta)return 0;
+      const d=await videoDuration(v);
+      v.removeAttribute('src');v.load?.();
+      return d;
     })());
   }
   return durCache.get(m.key);
@@ -3004,7 +3148,7 @@ function cueSheet(target,after){
     const alive=()=>scope==='global'||(scope==='interval'?owned(it):(E?.w===w||S.workouts.includes(w)));
     const saveClip=async(b,name)=>{
       if(!b)return;
-      if(b.size>8*1024*1024)return toast('Sounds need to be under 8 MB');
+      if(!(await roomFor(b.size)).ok)return toast(`No room to save ${sizeLabel(b.size)} of audio`);
       toast('Saving sound…');
       const key=await Store.putBlob(b);if(!key)return;
       if(!alive()){Store.remove(key);return}
