@@ -216,6 +216,8 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 .audio.playing .wave rect{fill:var(--tx)}
 .xa{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:none}
 .clockmini{width:100%;max-width:40vh;aspect-ratio:1;display:block;margin:0 auto}
+.hflag{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:var(--s2);color:var(--c);flex:none}
+.icard.art .hflag{position:relative;z-index:1}
 .subrow{display:flex;align-items:center;gap:8px;width:100%;margin-top:10px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:600;text-align:left;color:var(--mu);border:1.5px dashed var(--line)}
 .subrow.on{color:var(--tx);border-color:transparent;background:color-mix(in srgb,var(--sc) 20%,var(--s2))}
 .subrow .icon{flex:none}
@@ -345,6 +347,9 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 @media (max-width:400px){.rhead{gap:6px;padding:10px 10px}.rhead .iconbtn{width:34px;height:34px;border-radius:10px}}
 .rhmid{flex:1;min-width:0;text-align:center}
 .rname{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@keyframes holdpulse{0%,100%{opacity:1}50%{opacity:.45}}
+#run.held .rarc{animation:holdpulse 1.6s ease-in-out infinite}
+#run.held .rctrl .big{animation:holdpulse 1.6s ease-in-out infinite}
 .rname.nested{display:flex;align-items:center;justify-content:center;gap:5px}
 .rname.nested .icon{color:var(--c);flex:none}
 .rname.nested span{overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -1046,6 +1051,7 @@ const UI={plus:'M12 5v14M5 12h14',edit:'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',back:'
   shield:'M12 3l7 3v6c0 4-3 7.2-7 9-4-1.8-7-5-7-9V6z',check:'M5 13l4 4L19 7',
   watch:'M12 6a8 8 0 1 0 0 16a8 8 0 0 0 0-16M12 10v4l3 2M9.5 2h5M12 2v4',
   restart:'M3 12a9 9 0 1 0 2.7-6.4M3 4v5h5',tostart:'M21 5l-9 7 9 7zM12 5l-9 7 9 7z',right:'M9 5l7 7-7 7',
+  hand:'M9 11.5V5.2a1.6 1.6 0 0 1 3.2 0V11m0-1.4a1.6 1.6 0 0 1 3.2 0V12m0-1.2a1.6 1.6 0 0 1 3.2 0V15a6 6 0 0 1-6 6h-1a6 6 0 0 1-5-2.7l-2.2-3.2a1.7 1.7 0 0 1 2.6-2.1L9 15',
   list:'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01',
   sub:'M21 12a9 9 0 1 1-2.6-6.4M21 3v4h-4M12 9v6M9 12h6'};
 const ui=(k,cls='icon')=>`<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${UI[k]}"/></svg>`;
@@ -1228,7 +1234,7 @@ function subLoops(hostId,candId,depth=0){
 function normRoutine(w){
   w.id=String(w.id||uid());w.name=String(w.name||'Routine');w.color=w.color||PALETTE[0];
   w.created=+w.created||0;w.cues=w.cues&&typeof w.cues==='object'?w.cues:{};
-  w.intervals=(Array.isArray(w.intervals)?w.intervals:[]).map(it=>({id:uid(),title:'',icon:null,iconImg:null,duration:30,mode:'s',media:null,audio:null,cues:{},...it}));
+  w.intervals=(Array.isArray(w.intervals)?w.intervals:[]).map(it=>({id:uid(),title:'',icon:null,iconImg:null,duration:30,mode:'s',media:null,audio:null,cues:{},...it,hold:!!it.hold}));
   const secs=x=>typeof x==='number'&&isFinite(x)&&x>=0;
   if(!secs(w.trans))delete w.trans;
   if(!/^#[0-9a-f]{6}$/i.test(w.color2||''))delete w.color2;
@@ -1470,6 +1476,7 @@ function playBuffer(buf,offset=0,loop=false){
    still sounding and drops any that were still waiting on a decode. */
 function hushCues(r){
   if(r){
+    cueQ=cueQ.filter(c=>c.r!==r);
     r.cueGen=(r.cueGen||0)+1;
     if(r.cueSrc){for(const h of r.cueSrc)try{h.stop()}catch(e){}r.cueSrc=null}
   }
@@ -2017,7 +2024,7 @@ function renderCards(){
     box.innerHTML=S.workouts.map(w=>{
       const t=total(w),mine=runs.filter(r=>r.wid===w.id&&!r.done);
       const live=mine.find(isLive),next=mine.filter(isWaiting).sort((a,b)=>anchorOf(a)-anchorOf(b))[0];
-      const sub=live?(live.pausedAt?'Paused':'In progress'):next?`${ui('clock','icon xs')}${esc(whenLabel(anchorOf(next)))}`:plural(w.intervals.length,'interval');
+      const sub=live?(heldRun(live)?'Waiting for you':live.pausedAt?'Paused':'In progress'):next?`${ui('clock','icon xs')}${esc(whenLabel(anchorOf(next)))}`:plural(w.intervals.length,'interval');
       return `
       <article class="wcard ${live?'live':''} ${w.color2?'duo':''}" style="${themeVars(w)}" data-open="${w.id}">
         <button class="grip" aria-label="Reorder ${esc(w.name)}"></button>
@@ -2469,7 +2476,12 @@ function fillDetailRuns(){
     let main,sub;
     if(r.done){main='Finished';sub=r.logged?`${fmt(r.active/1000)} added to your chart`:'Too short to add to your chart'}
     else if(isWaiting(r)){const a=anchorOf(r);main=`Starts ${whenLabel(a)}`;sub=[REPEAT_N[r.plan?.repeat]||'',`in ${untilLabel(a-now)}`].filter(Boolean).join(' · ')}
-    else{const el=elapsedOf(r,now),p=posAt(r.w,el);main=r.pausedAt?'Paused':'Running';sub=`Interval ${p.idx+1} of ${r.w.intervals.length} · ${fmt(Math.ceil((total(r.w)*1000-el)/1000))} left${scaleLabel(r)}`}
+    else{
+      const el=elapsedOf(r,now),p=posAt(r.w,el),h=heldRun(r);
+      main=h?'Waiting for you':r.pausedAt?'Paused':'Running';
+      sub=h?`Tap to start ${h.it.title||`interval ${h.si+1}`}`
+        :`Interval ${p.idx+1} of ${r.w.intervals.length} · ${fmt(Math.ceil((total(r.w)*1000-el)/1000))} left${scaleLabel(r)}`;
+    }
     const b=row.querySelector('b'),s=row.querySelector('small');
     if(b.textContent!==main)b.textContent=main;
     if(s.textContent!==sub)s.textContent=sub;
@@ -3076,7 +3088,7 @@ function renderEditor(){
       <div class="ititle">
         <button class="iconpick ${it.icon||it.iconImg?'set':''}" data-act="icon" aria-label="Choose icon">${it.icon||it.iconImg?iconFor(it):ui('plus')}</button>
         <input class="tin" data-act="title" value="${esc(it.title)}" placeholder="Interval name" enterkeyhint="done" aria-label="Interval ${i+1} name">
-        <span class="inum num">${i+1}</span>
+${it.hold?`<span class="hflag" title="Waits for a tap before it starts" aria-label="Waits for a tap before it starts">${ui('hand','icon sm')}</span>`:''}<span class="inum num">${i+1}</span>
         <button class="more" data-act="more" aria-label="Interval options">${ui('more')}</button>
       </div>
       <div class="ibody">
@@ -3720,6 +3732,7 @@ function bindEditor(){
         openSheet(`<h4>${esc(it.title||`Interval ${i+1}`)}</h4><div class="menu">
           <button data-v="track">${ui('music')}${it.audio?'Replace or remove audio track':'Add audio track'}</button>
           <button data-v="callouts">${ui('speak')}Time callouts<span class="val">${esc(it.callouts?calloutLabel(it.callouts):'Default')}</span></button>
+          <button data-v="hold" class="${it.hold?'on':''}">${ui('hand')}Wait for a tap to start<span class="val">${it.hold?'On':'Off'}</span></button>
           ${it.media?.type==='video'||it.audio?`<button data-v="fitdur">${ui('watch')}Match duration to ${it.media?.type==='video'?'video':'audio'}</button>`:''}
           <button data-v="dup">${ui('copy')}Duplicate</button>
           <button data-v="up" ${i===0?'disabled':''}>${ui('up')}Move up</button>
@@ -3729,6 +3742,7 @@ function bindEditor(){
           if(v==='track'){setTimeout(()=>trackSheet(it),0);return}
           if(v==='fitdur'){matchDuration(it,it.media?.type==='video'?'media':'audio');return}
           if(v==='callouts'){setTimeout(()=>calloutSheet('interval',E.w,it),0);return}
+          if(v==='hold'){it.hold=!it.hold;renderEditor();toast(it.hold?'This interval will wait for a tap':'It starts on its own again');return}
           if(v==='dup')L.splice(i+1,0,{...structuredClone(it),id:uid()});
           if(v==='up'&&i>0)[L[i-1],L[i]]=[L[i],L[i-1]];
           if(v==='down'&&i<n-1)[L[i+1],L[i]]=[L[i],L[i+1]];
@@ -3902,7 +3916,7 @@ function bindDial(){
    Logic ticks every 100 ms; the runner redraws on rAF only while it is visible.  */
 const runs=[];
 let focusId=null,lastSave=0,wakeLock=null;
-const RUN_FIELDS=['id','wid','w','anchor','plan','pausedAt','active','tick','done','doneAt','logged','muted','created','scale'];
+const RUN_FIELDS=['id','wid','w','anchor','plan','pausedAt','active','tick','done','doneAt','logged','muted','created','scale','gateOk'];
 const REPEAT_N={none:'',daily:'Every day',weekdays:'Weekdays',weekly:'Every week'};
 const workoutOf=r=>r?.w||S.workouts.find(x=>x.id===r?.wid)||null;
 const offsetMs=(w,i)=>timeline(w).segs.find(s=>s.kind==='int'&&s.idx===i)?.start??0;
@@ -3996,6 +4010,47 @@ function kidOf(r){
   return runs.find(x=>x.parent===r.id&&x.pseg===si&&isLive(x))||null;
 }
 const deepestOf=r=>{let x=r,k;while(x&&(k=kidOf(x)))x=k;return x||r};
+const rootOf=r=>{let x=r,p;while(x&&(p=parentOf(x)))x=p;return x||r};
+const treeOf=r=>{const root=rootOf(r);return runs.filter(x=>rootOf(x)===root)};
+/* An interval can be set to wait for you before it starts. The whole nest of runs
+   freezes on the line, so nothing is eaten by however long you take. Being held is
+   worked out from where the runs are sitting rather than stored, which is what lets
+   it survive a reload without a flag to go stale. */
+function heldRun(r){
+  const root=rootOf(r);
+  if(!root||root.done||root.pausedAt==null)return null;
+  for(const x of treeOf(root)){
+    if(!x.w||x.done)continue;
+    const p=posAt(x.w,elapsedOf(x));
+    if(p.done||p.seg.kind!=='int'||p.el>400)continue;
+    const it=x.w.intervals[p.idx];
+    if(it?.hold&&x.gateOk!==p.si)return{run:x,si:p.si,it};
+  }
+  return null;
+}
+const isHeld=r=>!!heldRun(r);
+function holdRun(r,seg){
+  const at=anchorOf(r)+seg.start;
+  for(const x of treeOf(r)){x.pausedAt=at;stopTrack(x);hushCues(x)}
+  haptic(40);
+}
+function letGo(root){
+  const now=Date.now();
+  if(root.pausedAt==null)return;
+  root.anchor+=now-root.pausedAt;
+  for(const x of treeOf(root)){x.pausedAt=null;x.tick=now}
+}
+function releaseHold(r){
+  const h=heldRun(r);if(!h)return false;
+  h.run.gateOk=h.si;
+  letGo(rootOf(h.run));
+  tickRuns();persistRuns();
+  if(!h.run.muted){enterCue(h.run,h.si);restartTrack(h.run)}
+  haptic(30);
+  if(runVisible())renderRunner();
+  refreshScreen();updateRunsUI(true);
+  return true;
+}
 function subSegs(r){
   if(!r.w)return [];
   return timeline(r.w).segs
@@ -4092,14 +4147,19 @@ function tickRuns(){
       r.lastRem=null;
       const first=r.lastSi==null;
       const natural=!r.jumped&&(first?(r.liveBegin||p.el<1500):(p.si===r.lastSi+1&&p.el<1500));
+      if(r.gateOk!=null&&r.gateOk!==p.si)r.gateOk=null;
+      const held=p.seg.kind==='int'&&!!w.intervals[p.idx]?.hold
+        &&!r.pausedAt&&r.gateOk!==p.si&&p.el<1500;
       if(!r.muted&&!r.pausedAt&&(natural||r.cueOnJump)){
-        if(first||r.cueOnJump)enterCue(r,p.si);else segCues(r,r.lastSi,p.si);
+        if(!first&&!r.cueOnJump)cueQ.push({r,kind:'end',si:r.lastSi});
+        if(!held)cueQ.push({r,kind:'enter',si:p.si});   // it speaks when you let it start
         haptic(60);
       }
       r.lastSi=p.si;
-      restartTrack(r);
-      if(r.id===focusId&&runVisible())showInterval(r);
       changed=true;
+      if(r.id===focusId&&runVisible())showInterval(r);
+      if(held){holdRun(r,p.seg);if(r.id===focusId&&runVisible())renderRunner();continue}
+      restartTrack(r);
     }
     // Spoken checks on how long is left in this interval.
     if(!r.pausedAt&&!r.muted&&p.seg.kind==='int'){
@@ -4120,19 +4180,38 @@ function tickRuns(){
     }
     r.jumped=r.cueOnJump=r.liveBegin=r.forceLive=false;
   }
+  flushCues();
   if(changed){persistRuns();refreshScreen()}
   else if(now-lastSave>5000&&runs.some(r=>r.w&&!r.done&&!r.pausedAt))persistRuns();
   updateRunsUI();
 }
 function enterCue(r,si){
   const w=r.w,s=timeline(w).segs[si],it=segSubject(w,s);
-  playCue(s.kind==='int'?cueOf(w,it,'start'):wCue(w,'tstart'),it,r);
+  return playCue(s.kind==='int'?cueOf(w,it,'start'):wCue(w,'tstart'),it,r);
 }
-function segCues(r,from,to){
-  const w=r.w,segs=timeline(w).segs,a=segs[from],b=segs[to],prev=segSubject(w,a),next=segSubject(w,b);
-  const had=playCue(a.kind==='int'?cueOf(w,prev,'end'):wCue(w,'tend'),prev,r);
-  const c=b.kind==='int'?cueOf(w,next,'start'):wCue(w,'tstart'),gen=r.cueGen;
-  setTimeout(()=>{if(!r.done&&!r.pausedAt&&!r.muted&&r.lastSi===to&&r.cueGen===gen)playCue(c,next,r)},had?550:0);
+function endCue(r,si){
+  const w=r.w,s=timeline(w).segs[si],it=segSubject(w,s);
+  return playCue(s.kind==='int'?cueOf(w,it,'end'):wCue(w,'tend'),it,r);
+}
+/* One tick can turn several routines over at once — a block ending takes the routine
+   inside it with it, and the next block starts one of its own. Announcing each where
+   it happens gets them out of order, because a routine that is merely moving on waits
+   for its own ending to clear while a freshly started one speaks at once. So the
+   tick collects what it has to say and plays it in one go: every ending first, then
+   every beginning, outermost routine before the one nested inside it. */
+let cueQ=[];
+const runDepth=r=>{let d=0,x=r;while((x=parentOf(x)))d++;return d};
+function flushCues(){
+  if(!cueQ.length)return;
+  const q=cueQ;cueQ=[];
+  q.sort((a,b)=>runDepth(a.r)-runDepth(b.r));
+  let had=false;
+  for(const c of q)if(c.kind==='end'&&endCue(c.r,c.si))had=true;
+  const starts=q.filter(c=>c.kind==='enter').map(c=>({...c,gen:c.r.cueGen}));
+  if(!starts.length)return;
+  const go=()=>{for(const c of starts)
+    if(!c.r.done&&!c.r.pausedAt&&!c.r.muted&&c.r.lastSi===c.si&&c.r.cueGen===c.gen)enterCue(c.r,c.si)};
+  if(had)setTimeout(go,550);else go();
 }
 function stopTrack(r){r.trackTok=(r.trackTok||0)+1;if(r.track){r.track.stop();r.track=null}}
 function restartTrack(r){
@@ -4264,6 +4343,9 @@ function seekSeg(r,si,ms,cue){
   }
   const s=timeline(r.w).segs[si];if(!s)return;
   const target=s.start+Math.max(0,Math.min(ms,s.dur-50));
+  // Moving somewhere on purpose answers the question the hold was asking.
+  const h=heldRun(r);
+  if(h){h.run.gateOk=h.si;letGo(rootOf(r))}
   hushCues(r);
   r.anchor=(r.pausedAt??Date.now())-target;
   r.jumped=true;r.cueOnJump=!!cue&&!r.pausedAt;r.lastWhole=null;
@@ -4469,8 +4551,11 @@ function renderRunner(){
   const e=$('#rEnd');
   e.innerHTML=r.done||wait?ui('close'):ui('stop','icon fill');
   e.setAttribute('aria-label',r.done?'Close':wait?'Cancel scheduled start':'End routine');
+  const held=heldRun(r);
+  run.classList.toggle('held',!!held);
   const b=$('#rPlay');
-  if(r.done){b.innerHTML=ui('play','icon fill');b.setAttribute('aria-label','Start this routine again')}
+  if(held){b.innerHTML=ui('play','icon fill');b.setAttribute('aria-label',`Start ${held.it.title||'this interval'}`)}
+  else if(r.done){b.innerHTML=ui('play','icon fill');b.setAttribute('aria-label','Start this routine again')}
   else if(wait){b.innerHTML=ui('play','icon fill');b.setAttribute('aria-label','Start now')}
   else if(r.pausedAt){b.innerHTML=ui('play','icon fill');b.setAttribute('aria-label','Resume')}
   else{b.innerHTML=ui('pause');b.setAttribute('aria-label','Pause')}
@@ -4483,6 +4568,10 @@ function renderRunner(){
   $('#rSeek').classList.toggle('hidden',r.done);
   RE.range.disabled=r.done||wait;
   showInterval(r);
+  if(held){
+    $('#rNext').textContent='Waiting for you — tap to start';
+    $('#rNext').classList.add('wrap');
+  }
   drawRunner(true);
   fillTabs();
   if(multi)tabIntoView();
@@ -4620,9 +4709,10 @@ function runSummary(r,now=Date.now()){
   if(r.done)return{cls:'done',time:'Done'};
   const el=elapsedOf(r,now);
   if(el<0)return{cls:'wait',time:`in ${untilLabel(-el)}`};
+  if(isHeld(r))return{cls:'paused held',time:'Waiting'};
   return{cls:r.pausedAt?'paused':'',time:fmt(Math.ceil((total(r.w||w)*1000-el)/1000))};
 }
-const runKey=list=>list.map(r=>r.id+(r.done?'d':isWaiting(r)?'w':r.pausedAt?'p':'a')).join();
+const runKey=list=>list.map(r=>r.id+(r.done?'d':isWaiting(r)?'w':isHeld(r)?'h':r.pausedAt?'p':'a')).join();
 /* Two runs of the same routine get numbered so the tabs and chips stay apart. */
 function runName(r){
   const w=workoutOf(r),same=runs.filter(x=>x.wid===r.wid);
@@ -4715,6 +4805,7 @@ function bindRun(){
   $('#rPlay').onclick=()=>{
     const r=focusRun();if(!r)return;
     ensureAudio();
+    if(releaseHold(r))return;
     if(r.done)return startAgain(r);
     if(isWaiting(r))return beginNow(r);
     setPaused(r,!r.pausedAt);
@@ -4823,7 +4914,7 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const APP_BUILD='2026.09.20.2';
+const APP_BUILD='2026.09.20.3';
 const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
