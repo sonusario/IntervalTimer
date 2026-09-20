@@ -348,8 +348,8 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 .rname.nested{display:flex;align-items:center;justify-content:center;gap:5px}
 .rname.nested .icon{color:var(--c);flex:none}
 .rname.nested span{overflow:hidden;text-overflow:ellipsis;min-width:0}
-.rtab.kid{padding-left:6px}
-.rtab.kid>.sub{width:12px;height:12px;opacity:.8;flex:none}
+.rtab.kid{padding-left:4px}
+.rtab.kid>.nest{width:14px;height:14px;opacity:.55;flex:none;margin-right:-2px}
 .rleft{color:var(--mu);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* The stage is a size container: the ring and media are sized from the space actually
    left between the header and the controls, so nothing can spill over them. */
@@ -908,6 +908,7 @@ const total=w=>timeline(w).total/1000;
 /* An interval can stand in for a whole other routine. Its length is then that
    routine's, so the two can never drift apart. A run works from its own frozen copy
    (subW), which is what keeps a routine that is already going from changing under it. */
+const SUB_DEPTH=8;   // how far one routine may be nested inside another
 const subLive=it=>it&&it.sub?S.workouts.find(w=>w.id===it.sub.id)||null:null;
 function durOf(it){
   if(!it.sub||it.subW)return it.duration;
@@ -957,11 +958,16 @@ function snapshot(w,depth=0){
   for(const it of c.intervals){
     if(!it.sub)continue;
     delete it.subW;
-    const sw=depth<4?subLive(it):null;
+    const sw=depth<SUB_DEPTH?subLive(it):null;
     if(sw&&timeline(sw).total>0){
       it.subW=snapshot(sw,depth+1);
       it.duration=Math.round(timeline(it.subW).total/1000);
-    }else delete it.sub;   // gone, or nested too deep: the interval just runs as itself
+    }else{
+      // Gone, or nested past the cap: the interval runs as itself, but at the length
+      // it was standing in for, so the totals above it still add up.
+      it.duration=durOf(it)||it.duration;
+      delete it.sub;
+    }
   }
   return c;
 }
@@ -1039,7 +1045,7 @@ const UI={plus:'M12 5v14M5 12h14',edit:'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',back:'
   playplus:'M4 5l9 6-9 6zM17.8 3h2.4v2.8H23v2.4h-2.8V11h-2.4V8.2H15V5.8h2.8z',
   shield:'M12 3l7 3v6c0 4-3 7.2-7 9-4-1.8-7-5-7-9V6z',check:'M5 13l4 4L19 7',
   watch:'M12 6a8 8 0 1 0 0 16a8 8 0 0 0 0-16M12 10v4l3 2M9.5 2h5M12 2v4',
-  restart:'M3 12a9 9 0 1 0 2.7-6.4M3 4v5h5',tostart:'M21 5l-9 7 9 7zM12 5l-9 7 9 7z',
+  restart:'M3 12a9 9 0 1 0 2.7-6.4M3 4v5h5',tostart:'M21 5l-9 7 9 7zM12 5l-9 7 9 7z',right:'M9 5l7 7-7 7',
   list:'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01',
   sub:'M21 12a9 9 0 1 1-2.6-6.4M21 3v4h-4M12 9v6M9 12h6'};
 const ui=(k,cls='icon')=>`<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${UI[k]}"/></svg>`;
@@ -1214,7 +1220,7 @@ function migrate(v){
 /* Would putting `cand` inside `hostId` come back round to itself? */
 function subLoops(hostId,candId,depth=0){
   if(candId===hostId)return true;
-  if(depth>6)return true;
+  if(depth>=SUB_DEPTH)return true;
   const w=S.workouts.find(x=>x.id===candId);
   if(!w)return false;
   return w.intervals.some(it=>it.sub&&subLoops(hostId,it.sub.id,depth+1));
@@ -1240,7 +1246,7 @@ function normRoutine(w){
 const busy=new Set(),busyMsg=new Map();
 const keysOf=(w,depth=0)=>[w.cues?.start?.key,w.cues?.end?.key,w.cues?.done?.key,w.cues?.tstart?.key,w.cues?.tend?.key,
   ...w.intervals.flatMap(i=>[i.media?.key,i.audio?.key,i.cues?.start?.key,i.cues?.end?.key,
-    ...(i.subW&&depth<4?keysOf(i.subW,depth+1):[])])].filter(Boolean);
+    ...(i.subW&&depth<SUB_DEPTH?keysOf(i.subW,depth+1):[])])].filter(Boolean);
 function mediaInUse(key){
   const all=[...S.workouts.filter(w=>!E||w.id!==E.w.id),...(E?[E.w]:[]),...runs.map(r=>r.w).filter(Boolean)];
   return all.some(w=>keysOf(w).includes(key))||Object.values(S.settings.cues).some(c=>c?.key===key);
@@ -3981,6 +3987,15 @@ function planRun(wid,plan){
    which is also what makes them survive a reload. */
 const isKid=r=>!!r?.parent;
 const parentOf=r=>r?.parent?runs.find(x=>x.id===r.parent)||null:null;
+/* Is this run the one with that id, or nested somewhere inside it? */
+const inChain=(id,r)=>{for(let x=r;x;x=parentOf(x))if(x.id===id)return true;return false};
+/* The subroutine standing in for whatever this run is on right now. */
+function kidOf(r){
+  if(!r?.w||r.done)return null;
+  const si=posAt(r.w,elapsedOf(r)).si;
+  return runs.find(x=>x.parent===r.id&&x.pseg===si&&isLive(x))||null;
+}
+const deepestOf=r=>{let x=r,k;while(x&&(k=kidOf(x)))x=k;return x||r};
 function subSegs(r){
   if(!r.w)return [];
   return timeline(r.w).segs
@@ -4019,22 +4034,30 @@ function syncKids(){
     if(c.muted!==p.muted){c.muted=p.muted;if(c.muted){stopTrack(c);hushCues(c)}}
     if(c.pdur!==seg.dur)fitKid(c,seg);
   }
-  // Start one for any parent that has just reached a subroutine interval.
-  for(const r of [...runs]){
-    if(isKid(r)||!r.w||r.done||isWaiting(r))continue;
-    const p=posAt(r.w,elapsedOf(r));
-    if(p.done||p.seg.kind!=='int')continue;
-    const it=r.w.intervals[p.idx];
-    if(!it?.subW)continue;
-    if(runs.some(x=>x.parent===r.id&&x.pseg===p.si))continue;
-    const seg=p.seg,now=Date.now();
-    const c=makeRun(it.sub?.id||it.subW.id);
-    Object.assign(c,{parent:r.id,pseg:p.si,src:it.subW,nolog:true,muted:r.muted,
-      anchor:anchorOf(r)+seg.start,pausedAt:r.pausedAt,tick:now,liveBegin:true,created:now});
-    fitKid(c,seg);
-    prepAudio(c.w);
-    if(focusId===r.id)focusId=c.id;   // you want to see the routine that is actually on
-    changed=shown=true;
+  /* Start one for any run — nested or not — that has just reached a subroutine
+     interval. A subroutine can hold subroutines of its own, and a run that has only
+     just been created has to be looked at again, so this goes round until nothing
+     new starts rather than picking up one level per tick. */
+  for(let pass=0;pass<SUB_DEPTH;pass++){
+    let made=false;
+    for(const r of [...runs]){
+      if(!r.w||r.done||isWaiting(r))continue;
+      const p=posAt(r.w,elapsedOf(r));
+      if(p.done||p.seg.kind!=='int')continue;
+      const it=r.w.intervals[p.idx];
+      if(!it?.subW)continue;
+      if(runs.some(x=>x.parent===r.id&&x.pseg===p.si))continue;
+      const seg=p.seg,now=Date.now();
+      const c=makeRun(it.sub?.id||it.subW.id);
+      Object.assign(c,{parent:r.id,pseg:p.si,src:it.subW,nolog:true,muted:r.muted,
+        anchor:anchorOf(r)+seg.start,pausedAt:r.pausedAt,tick:now,liveBegin:true,created:now});
+      fitKid(c,seg);
+      prepAudio(c.w);
+      // Follow the handover down: what is on screen should be what is actually on.
+      if(!focusId||inChain(focusId,r))focusId=c.id;
+      made=changed=shown=true;
+    }
+    if(!made)break;
   }
   if(shown&&runVisible())renderRunner();
   return changed;
@@ -4258,7 +4281,12 @@ function restartSeg(r){
 }
 /* Back to the very beginning. Time already trained stays counted. */
 function restartRun(r){
-  if(isKid(r))return restartSeg(r);   // back to the top of this subroutine
+  if(isKid(r)){
+    const p=parentOf(r);
+    if(p&&p.w)seekSeg(p,r.pseg,0,true);   // back to the top of this subroutine
+    haptic(30);toast('Back to the start');
+    return;
+  }
   if(!r?.w||r.done||isWaiting(r))return;
   const now=Date.now();
   Object.assign(r,{anchor:now,pausedAt:null,tick:now,lastSi:null,lastWhole:null,lastRem:null,
@@ -4275,20 +4303,46 @@ function startAgain(r){
   removeRun(r);
   startNow(wid);
 }
+/* Straight past the end of a run, which finishes it. */
+function runPastEnd(r){
+  const tl=timeline(r.w);
+  hushCues(r);
+  r.forceLive=!r.pausedAt;
+  r.anchor=(r.pausedAt??Date.now())-tl.total-1;
+  tickRuns();
+}
+/* Off the end of a subroutine is the interval after the one it stands in for —
+   walked up level by level, since that interval may itself be the last of another. */
+function stepOutFwd(r){
+  const p=parentOf(r);if(!p||!p.w)return;
+  const n=r.pseg+1;
+  if(n>=timeline(p.w).segs.length)return isKid(p)?stepOutFwd(p):runPastEnd(p);
+  seekSeg(p,n,0,true);
+}
+function stepOutBack(r){
+  const p=parentOf(r);if(!p||!p.w)return;
+  if(r.pseg<=0)return isKid(p)?stepOutBack(p):seekSeg(p,0,0,false);
+  seekSeg(p,r.pseg-1,0,true);
+}
 function jumpRun(r,delta){
   if(!r?.w||!isLive(r))return;
+  /* Next and previous move by what is actually playing. When a subroutine is standing
+     in for this interval, stepping the routine around it would skip the whole block,
+     so the step goes to the subroutine — and the screen goes with it. */
+  const kid=kidOf(r);
+  if(kid){
+    if(focusId===r.id)focusId=kid.id;
+    jumpRun(kid,delta);
+    if(runVisible())renderRunner();
+    return;
+  }
   const tl=timeline(r.w),p=posAt(r.w,elapsedOf(r));
-  // Skipping past either end of a subroutine steps the routine it sits in.
-  if(isKid(r)&&(p.si+delta>=tl.segs.length))return jumpRun(parentOf(r),1);
   if(delta<0&&p.el>2000)return seekSeg(r,p.si,0,false);
   const n=p.si+delta;
+  if(isKid(r)&&n>=tl.segs.length)return stepOutFwd(r);
+  if(isKid(r)&&n<0)return stepOutBack(r);
   if(n<0)return seekSeg(r,0,0,false);
-  if(n>=tl.segs.length){
-    hushCues(r);
-    r.forceLive=!r.pausedAt;
-    r.anchor=(r.pausedAt??Date.now())-tl.total-1;
-    tickRuns();return;
-  }
+  if(n>=tl.segs.length)return runPastEnd(r);
   seekSeg(r,n,0,true);
 }
 function syncRun(r,plan){
@@ -4371,7 +4425,10 @@ const runVisible=()=>!$('#run').classList.contains('hidden');
 const focusRun=()=>runs.find(r=>r.id===focusId)||null;
 function openRunner(id){
   if(id)focusId=id;
-  if(!focusRun())return;
+  const cur=focusRun();
+  if(!cur)return;
+  const deep=deepestOf(cur);
+  if(deep&&deep.id!==focusId)focusId=deep.id;
   $('#run').classList.remove('hidden');
   showUpdateBar();
   navOpen('run',()=>{closeRunner();refreshScreen()});
@@ -4404,7 +4461,8 @@ function renderRunner(){
   const multi=runs.length>1;
   $('#rTabs').classList.toggle('hidden',!multi);
   if(multi)$('#rTabs').innerHTML=runs.map(x=>{const xw=workoutOf(x),kid=isKid(x);
-    return `<button class="rtab ${kid?'kid':''} ${x.id===focusId?'on':''}" data-tab="${x.id}" style="--tc:${xw?.color||'#888'};--ci:${inkFor(xw?.color)}" aria-pressed="${x.id===focusId}" aria-label="${esc(runName(x))}${kid?` inside ${esc(hostLabel(x))}`:''}">${kid?ui('sub','sub'):'<i></i>'}<span>${esc(runName(x))}</span><b class="num" data-tt="${x.id}"></b></button>`}).join('');
+    return `<button class="rtab ${kid?'kid':''} ${x.id===focusId?'on':''}" data-tab="${x.id}" style="--tc:${xw?.color||'#888'};--ci:${inkFor(xw?.color)}" aria-pressed="${x.id===focusId}" aria-label="${esc(runName(x))}${kid?` inside ${esc(hostLabel(x))}`:''}">${kid?ui('right','nest'):'<i></i>'}<span>${esc(runName(x))}</span><b class="num" data-tt="${x.id}"></b></button>`}).join('');
+
   const m=$('#rMute');
   m.innerHTML=ui(r.muted?'off':'sound');m.classList.toggle('on',r.muted);
   m.setAttribute('aria-label',r.muted?'Unmute this routine':'Mute this routine');m.setAttribute('aria-pressed',String(r.muted));
@@ -4427,6 +4485,7 @@ function renderRunner(){
   showInterval(r);
   drawRunner(true);
   fillTabs();
+  if(multi)tabIntoView();
 }
 function showInterval(r){
   const w=workoutOf(r),box=$('#rMedia'),run=$('#run');
@@ -4595,6 +4654,13 @@ function fillStrip(){
     const t=b.lastChild;if(t.textContent!==s.time)t.textContent=s.time;
   });
 }
+function tabIntoView(){
+  const strip=$('#rTabs'),on=strip.querySelector('.rtab.on');
+  if(!on)return;
+  const s=strip.getBoundingClientRect(),b=on.getBoundingClientRect();
+  if(b.left<s.left+10)strip.scrollLeft+=b.left-s.left-10;
+  else if(b.right>s.right-10)strip.scrollLeft+=b.right-s.right+10;
+}
 function fillTabs(){
   const now=Date.now();
   $$('#rTabs [data-tt]').forEach(b=>{const r=runs.find(x=>x.id===b.dataset.tt);if(!r)return;const t=runSummary(r,now).time;if(b.textContent!==t)b.textContent=t});
@@ -4757,7 +4823,7 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const APP_BUILD='2026.09.19';
+const APP_BUILD='2026.09.20';
 const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
