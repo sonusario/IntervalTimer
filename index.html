@@ -103,7 +103,19 @@ input{font:inherit;color:inherit}
 .chead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .ctitle{font-family:var(--disp);font-size:22px;font-weight:700;line-height:1.1}
 .cinfo{color:var(--mu);font-size:13px}
-.cinfo.tapme{color:var(--ac);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.lgrow{display:flex;align-items:center;gap:8px;min-width:0}
+.lgrow .legend{flex:1;min-width:0}
+.cedit{flex:none;display:flex;align-items:center;gap:5px;height:30px;padding:0 10px;border-radius:999px;background:var(--s2);color:var(--mu);font-size:12px;font-weight:600}
+.cedit.on{background:var(--ac);color:var(--ac-ink)}
+.chart.editing{outline:1.5px dashed color-mix(in srgb,var(--ac) 55%,transparent);outline-offset:2px;border-radius:10px}
+.chart.editing rect[data-i]{cursor:pointer}
+.sesedit .sect:first-child{margin-top:4px}
+.bigval{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;padding:14px;border-radius:14px;background:var(--s2);font-family:var(--disp);font-size:34px;font-weight:700;font-variant-numeric:tabular-nums}
+.bigval span{font-family:inherit;font-size:12px;font-weight:600;color:var(--mu);font-variant-numeric:normal}
+.whenrow{display:flex;gap:8px}
+.whenrow input{flex:1;min-width:0;padding:11px 10px;border-radius:12px;background:var(--s2);color:var(--tx);font:inherit;font-weight:600;border:0}
+.menu.seslist .ses .val{display:flex;align-items:center;gap:2px}
+.menu.seslist .ses .val .icon{color:var(--mu)}
 .menu.sublist button{padding:10px 12px}
 .menu.sublist button:disabled{opacity:.45}
 .menu.seslist .ses{padding:10px 12px}
@@ -379,6 +391,10 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 .rnext{color:var(--mu);font-size:15px;line-height:20px;min-height:20px;max-width:100%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* The finished and scheduled screens have room to breathe, so let their note wrap. */
 .rnext.wrap{white-space:pre-line;text-wrap:balance}
+.logpick{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:10px;max-width:100%}
+.logpick .lgopts{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.logpick .lgl{color:var(--mu);font-size:12px;font-weight:600}
+.nolog{flex:none;display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:2px 7px;border-radius:7px;background:var(--s2);color:var(--mu);font-size:11px;font-weight:600;vertical-align:middle}
 .rrail{padding:0 18px}
 .rctrl{display:flex;justify-content:center;align-items:center;gap:28px;padding:16px 0 20px}
 .rctrl button{width:58px;height:58px;border-radius:50%;background:rgba(255,255,255,.08);display:grid;place-items:center;flex:none}
@@ -600,6 +616,12 @@ body.sorting .wcard:active,body.sorting .icard:active{background:var(--s1)}
 .chart .avg{fill:none}
 .sgroup .avgrow{padding:6px 10px 0}
 .srow.col{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+.cdrow{display:grid!important;grid-template-columns:auto 1fr;align-items:center;column-gap:12px}
+.cdrow .cdchips{grid-column:1/-1}
+.cdchips{display:flex;flex-wrap:wrap;gap:6px}
+.cdchips .chip{min-width:44px;justify-content:center}
+.cdsheet{padding:2px 0 8px}
+.cdsheet .sect{display:flex;align-items:center;gap:8px;margin-top:6px}
 .srow.col .sl{flex:none}
 .srow.col .seg3{width:100%}
 .srow.col .seg3 button{padding:10px 6px}
@@ -641,7 +663,8 @@ body.watching #sheet{z-index:70}
 .tgap.own{color:var(--tx);border-style:solid;border-color:color-mix(in srgb,var(--c) 55%,transparent)}
 .tgap.zero{opacity:.6}
 .etotal{flex-wrap:nowrap;gap:8px}
-#eTotal{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#eTotal{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:0;overflow:hidden;white-space:nowrap}
+#eTotal .etxt{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .echips{flex:none;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
 /* Narrow phones: the chips keep their icons and drop the words, so all three fit. */
 @media (max-width:460px){.echips .chip{padding:8px 11px}.echips .chip .lbl,#eTotal .lbl{display:none}}
@@ -788,7 +811,7 @@ body.watching #sheet{z-index:70}
     </div>
     <div class="chart" id="chart"></div>
     <div class="avgrow hidden" id="avgRow"></div>
-    <div class="legend" id="legend"></div>
+    <div class="lgrow"><div class="legend" id="legend"></div><button class="cedit" id="chartEdit"></button></div>
   </section>
   <i id="peekProbe" aria-hidden="true"></i>
 </div>
@@ -851,6 +874,7 @@ body.watching #sheet{z-index:70}
         <button class="rsync" id="rSync" aria-label="Sync to a clock time"></button>
       </div>
       <div class="rnext" id="rNext"></div>
+      <div class="logpick hidden" id="rLog"></div>
     </div>
   </div>
   <div class="rrail" id="rRail"></div>
@@ -958,6 +982,13 @@ const segOfInterval=(w,i)=>timeline(w).segs.findIndex(s=>s.kind==='int'&&s.idx==
 const segSubject=(w,s)=>w.intervals[s.kind==='int'?s.idx:Math.min(s.k,w.intervals.length-1)];
 /* A run keeps its own copy with the inherited transition resolved, so changing the
    app default can't shift a routine that is already running. */
+/* A run's frozen copy, and the routine's natural length alongside it — the length a
+   synced run can be logged at instead of the time it actually took. */
+function freshCopy(r,w){
+  if(!r.w){r.w=snapshot(w);r.fullT=Math.round(timeline(r.w).total/1000)}
+  else if(r.fullT==null)r.fullT=Math.round(timeline(r.w).total/1000);
+  return r.w;
+}
 function snapshot(w,depth=0){
   const c=structuredClone(w);c.trans=transOf(w);
   for(const it of c.intervals){
@@ -1190,8 +1221,8 @@ const Store=(()=>{
 
 const PLACES=[['behind','Behind the timer'],['panel','Its own panel']];
 const placeOf=m=>m&&m.place==='panel'?'panel':'behind';
-const DEF_SETTINGS={cues:{start:{kind:'none'},end:{kind:'builtin',id:'chime'},done:{kind:'builtin',id:'levelup'},tstart:{kind:'builtin',id:'tick'},tend:{kind:'none'}},countdown:true,volume:.8,haptics:true,wake:true,trans:0,callouts:{mode:'off'},ovl:.45,shrinkVid:false};
-let S={v:4,workouts:[],history:[],archive:[],runs:[],settings:structuredClone(DEF_SETTINGS),ui:{dashFab:'right',editFab:'right',range:'d7',arch:'d30',drawer:'peek',hide:[],hideA:[],avg:true,avgA:true,avgWin:0,avgWinA:0,chartOff:0,chartOffA:0}};
+const DEF_SETTINGS={cues:{start:{kind:'none'},end:{kind:'builtin',id:'chime'},done:{kind:'builtin',id:'levelup'},tstart:{kind:'builtin',id:'tick'},tend:{kind:'none'}},countdown:3,volume:.8,haptics:true,wake:true,trans:0,callouts:{mode:'off'},ovl:.45,shrinkVid:false};
+let S={v:4,workouts:[],history:[],archive:[],runs:[],settings:structuredClone(DEF_SETTINGS),ui:{dashFab:'right',editFab:'right',range:'d7',arch:'d30',drawer:'peek',hide:[],hideA:[],avg:true,avgA:true,avgWin:0,avgWinA:0,chartOff:0,chartOffA:0,chartEdit:false,archEdit:false}};
 function save(){Store.saveState(S)}
 /* Brings any older saved state up to date. History from routines that no longer exist
    moves to the archive. */
@@ -1207,6 +1238,7 @@ function migrate(v){
   if(!/^[dwm]\d+$/.test(s.ui.arch||''))s.ui.arch='d30';
   s.ui.chartOff=Math.max(0,+s.ui.chartOff||0);s.ui.chartOffA=Math.max(0,+s.ui.chartOffA||0);
   if(typeof s.settings.trans!=='number'||!(s.settings.trans>=0))s.settings.trans=0;
+  s.settings.countdown=cdNorm(s.settings.countdown);
   /* "show at full size", then an app-wide layout, is now set per interval: carry
      whichever was chosen onto the media that already exists. */
   const wasPanel=s.settings.media==='panel'||s.settings.bleed===false;
@@ -1498,12 +1530,25 @@ function playCue(c,it,r){
   else return false;
   return true;
 }
-function countBeep(){if(ensureAudio())tone({f:880,dur:.1,vol:.25})}
+/* The last three are the familiar 3-2-1; any beeps before them are softer and lower,
+   so you can still tell where the three begin. */
+function countBeep(n=1){if(!ensureAudio())return;if(n<=3)tone({f:880,dur:.1,vol:.25});else tone({f:660,dur:.08,vol:.14})}
 
 /* Sound defaults resolve interval → routine → app settings. */
 const cueOf=(w,it,which)=>(it&&it.cues?.[which])||w.cues?.[which]||S.settings.cues[which];
 const wCue=(w,which)=>w.cues?.[which]||S.settings.cues[which];
-const countdownOn=w=>w.countdown??S.settings.countdown;
+/* Countdown beeps before each interval: off, or 3 to 10 seconds of them. Older saves
+   stored a plain on/off, which reads as the classic 3-2-1. */
+const CD_MIN=3,CD_MAX=10;
+function cdNorm(v){
+  if(v===true)return CD_MIN;
+  if(v===false||v==null)return 0;
+  const n=Math.round(+v)||0;
+  return n<=0?0:Math.max(CD_MIN,Math.min(CD_MAX,n));
+}
+const countdownOf=w=>cdNorm(w?.countdown??S.settings.countdown);
+const countdownOn=w=>countdownOf(w)>0;
+const cdLabel=n=>n?`${n}s of beeps`:'Off';
 /* Spoken "time left" checks: off, every n seconds, or a halving countdown. */
 const DEF_CALLOUT={mode:'off'};
 const calloutOf=(w,it)=>(it&&it.callouts)||w.callouts||S.settings.callouts||DEF_CALLOUT;
@@ -1518,9 +1563,12 @@ function calloutMarks(co,dur){
   let v=60;
   while(v*2<dur)v*=2;
   for(;v>=15;v/=2)if(v<dur-1)out.push(v);
-  out.push(10);
-  return [...new Set(out)].filter(x=>x>=10&&x<dur-1);
+  return [...new Set(out)].filter(x=>x>=15&&x<dur-1);
 }
+const cdChips=(cur,withDefault,def)=>`<div class="tchips cdchips" role="radiogroup" aria-label="Countdown beeps">${
+  (withDefault?[['def',`Default · ${def?def+'s':'off'}`]]:[]).concat([[0,'Off'],...[3,4,5,6,7,8,9,10].map(n=>[n,n+'s'])])
+  .map(([v,l])=>`<button class="chip ${String(cur)===String(v)?'on':''}" role="radio" aria-checked="${String(cur)===String(v)}" data-cd="${v}">${l}</button>`).join('')}</div>`;
+function markChips(box,v){box.querySelectorAll('[data-cd]').forEach(b=>{const on=b.dataset.cd===String(v);b.classList.toggle('on',on);b.setAttribute('aria-checked',String(on))})}
 const calloutLabel=co=>!co?'Default':co.mode==='off'?'Off':co.mode==='ladder'?'Counting down':`Every ${fmtS(co.n||60)}`;
 function cueLabel(c){
   if(!c)return 'Default';
@@ -2081,7 +2129,7 @@ function bindDrawer(){
   const d=$('#drawer'),handle=$('#drawerHandle');
   let st=null,dragged=false;
   const down=e=>{
-    if(e.button>0||e.target.closest('#rng')||e.target.closest('.cinfo.tapme'))return;
+    if(e.button>0||e.target.closest('#rng'))return;
     if(e.pointerType==='mouse')e.preventDefault();
     st={y:e.clientY,h:d.getBoundingClientRect().height,pid:e.pointerId,moved:false,v:0,ly:e.clientY,lt:performance.now(),el:e.currentTarget};
     try{e.currentTarget.setPointerCapture(e.pointerId)}catch(_){}
@@ -2142,10 +2190,10 @@ function sessionsSheet(opt={}){
     return head+note+`<div class="menu seslist">`+(rows.length?rows.map(({e})=>{
       const w=live[e.workoutId];
       const name=w?w.name:(e.n||'Deleted routine');
-      return `<div class="cuerow"><button class="ses" data-keep="i:${esc(e.id)}" ${w?'':'disabled'}>
+      return `<div class="cuerow"><button class="ses" data-keep="i:${esc(e.id)}" aria-label="Edit this session">
         <i class="dot" style="background:${esc(w?w.color:(e.c||'var(--mu)'))}"></i>
-        <span class="sl">${esc(name)}<small>${esc(when(e))}</small></span>
-        <span class="val">${fmt(e.seconds)}</span></button>
+        <span class="sl">${esc(name)}<small>${esc(when(e))}${e.full!=null?` · ${e.how==='full'?'full':'actual'}`:''}</small></span>
+        <span class="val">${fmt(e.seconds)}${ui('right','icon xs')}</span></button>
         <button class="prev red" data-keep="d:${esc(e.id)}" aria-label="Delete this session">${ui('trash','icon sm')}</button></div>`;
     }).join(''):`<p class="small">No sessions to show.</p>`)+`</div>`;
   };
@@ -2153,9 +2201,9 @@ function sessionsSheet(opt={}){
   openSheet(body(),null,{onKeep:k=>{
     if(k==='all'){bucket=null;return redraw()}
     if(k.startsWith('i:')){
-      const e=sessionList(scope).find(x=>x.id===k.slice(2));
-      const w=e&&S.workouts.find(x=>x.id===e.workoutId);
-      if(w){closeSheet();openEditor(w.id,screen)}
+      sessionSheet(scope,k.slice(2),{
+        refresh:()=>{if(screen==='dash')renderMainChart();if(screen==='settings')settingsCounts()},
+        back:()=>sessionsSheet({scope,bucket})});
       return;
     }
     if(!k.startsWith('d:'))return;
@@ -2173,6 +2221,63 @@ function sessionsSheet(opt={}){
       if(screen==='settings')settingsCounts();
     }});
   },onClose:hideToast});
+}
+
+/* One logged session on its own: how long it counts for, when it happened, and
+   whether a synced run counts as what it took or as the routine's full length. */
+function sessionSheet(scope,id,opts={}){
+  const touch=()=>opts.refresh?.();
+  const body=()=>{
+    const e=sessionList(scope).find(x=>x.id===id);
+    if(!e)return `<h4>Gone</h4><p class="small">That session is no longer here.</p>`;
+    const w=S.workouts.find(x=>x.id===e.workoutId);
+    const name=w?w.name:(e.n||'Deleted routine');
+    const at=e.at||Date.parse((e.date||'')+'T12:00:00')||Date.now();
+    const opt=(k,lab,v)=>`<button class="chip ${(e.how||'actual')===k?'on':''}" data-keep="how:${k}" aria-pressed="${(e.how||'actual')===k}">${lab} · ${fmt(v)}</button>`;
+    return `<h4>${esc(name)}</h4>
+      <p class="small">A single finished run. Changing it here changes the chart.</p>
+      <div class="sesedit">
+        <div class="sect">Counts for</div>
+        <button class="bigval" data-keep="dur">${fmt(e.seconds)}<span>tap to change</span></button>
+        ${e.full!=null?`<div class="sect">Synced run — counted as</div><div class="tchips">${opt('actual','What it took',e.actual)}${opt('full','Full routine',e.full)}</div>`:''}
+        <div class="sect">When</div>
+        <div class="whenrow"><input type="date" id="sesDate" value="${esc(dateVal(at))}" aria-label="Date"><input type="time" id="sesTime" value="${esc(timeVal(at).slice(0,5))}" aria-label="Time"></div>
+      </div>
+      <div class="dialfoot"><button class="btn red" data-v="del">Delete</button><button class="btn pri" data-v="done">Done</button></div>`;
+  };
+  const redraw=()=>{$('#sheetBody').innerHTML=body()};
+  const cur=()=>sessionList(scope).find(x=>x.id===id);
+  const commitWhen=()=>{
+    const e=cur(),d=$('#sesDate'),t=$('#sesTime');
+    if(!e||!d||!t)return;
+    const ms=parseDT(d.value,t.value||'12:00');
+    if(ms==null)return;
+    e.at=ms;e.date=dayKey(ms);save();touch();
+  };
+  openSheet(body(),v=>{
+    if(v==='del'){
+      const list=sessionList(scope),e=cur();if(!e)return;
+      const i=list.indexOf(e);list.splice(i,1);save();touch();haptic(15);
+      toast(`Removed ${fmt(e.seconds)}`,{label:'Undo',fn:()=>{
+        if(list.some(x=>x.id===id))return;
+        list.splice(Math.min(i,list.length),0,e);save();touch();
+      }});
+      return;
+    }
+    commitWhen();
+  },{onKeep:(k,el)=>{
+    const e=cur();if(!e)return;
+    if(k.startsWith('how:')){setSessionHow(e,k.slice(4));redraw();touch();return}
+    if(k==='dur'){
+      commitWhen();
+      openDial(-1,el,{value:Math.max(1,e.seconds),onSet:sec=>{
+        const f=cur();if(!f)return;
+        f.seconds=Math.max(1,Math.round(sec));
+        if(f.full!=null){f.how='set';delete f.actual;delete f.full}   // set by hand now
+        save();redraw();touch();
+      }});
+    }
+  },onClose:()=>{commitWhen();hideToast();if(opts.back)setTimeout(opts.back,0)}});
 }
 
 /* ---------- Charts (main history and archive) ---------- */
@@ -2244,8 +2349,9 @@ function drawChart(o){
   }
   const maxS=Math.max(0,...B.map(b=>b.sum)),sumS=B.reduce((a,b)=>a+b.sum,0);
   const unit=maxS>3*3600?'h':'m',div=unit==='h'?3600:60;
-  o.info.onclick=null;o.info.classList.remove('tapme');o.info.removeAttribute('role');o.info.removeAttribute('tabindex');
-  o.info.textContent=(skip?`${B[0].long} – ${B.at(-1).long}`:o.label(unit))+(sumS?` · ${fmt(sumS)} total · ${fmt(Math.round(sumS/N))} avg`:'');
+  o.info.textContent=o.editing?'Tap a bar to edit the sessions in it'
+    :(skip?`${B[0].long} – ${B.at(-1).long}`:o.label(unit))+(sumS?` · ${fmt(sumS)} total · ${fmt(Math.round(sumS/N))} avg`:'');
+  el.classList.toggle('editing',!!o.editing);
   const rank=id=>{const k=S.workouts.findIndex(w=>w.id===id);return k<0?1e9:k};
   const ids=Object.keys(rangeTot).sort((a,b)=>rank(a)-rank(b)||a.localeCompare(b));
   const meta=Object.fromEntries(ids.map(id=>[id,o.lookup(id)]));
@@ -2369,19 +2475,15 @@ function drawChart(o){
     sel.setAttribute('x',ml+i*bw);sel.setAttribute('opacity','1');
     const n=Object.keys(b.by).filter(id=>!hid.has(id)).length;
     o.info.textContent=b.sum?`${b.long}: ${fmt(b.sum)} across ${plural(n,'routine')}`:`${b.long}: no training`;
-    // The totals are the way in to the sessions behind them.
-    const can=!!b.sum&&!!o.scope;
-    o.info.classList.toggle('tapme',can);
-    o.info.onclick=can?()=>sessionsSheet({scope:o.scope,bucket:{k:b.k,long:b.long,range:o.range}}):null;
-    if(can){o.info.setAttribute('role','button');o.info.setAttribute('tabindex','0')}
-    else{o.info.removeAttribute('role');o.info.removeAttribute('tabindex')}
+    // In edit mode a bar is a way in to the sessions behind it; otherwise it just reads.
+    if(o.editing&&o.scope&&b.sum)sessionsSheet({scope:o.scope,bucket:{k:b.k,long:b.long,range:o.range}});
   };
 }
 const toggleHidden=(list,id)=>{const i=list.indexOf(id);if(i<0)list.push(id);else list.splice(i,1)};
 function renderMainChart(){
   const snap={};for(const h of S.history)if(h.c)snap[h.workoutId]={c:h.c,n:h.n};
   drawChart({el:$('#chart'),legend:$('#legend'),info:$('#chartInfo'),entries:S.history,range:S.ui.range,
-    scope:'history',hidden:S.ui.hide,avg:S.ui.avg,row:$('#avgRow'),win:S.ui.avgWin,off:S.ui.chartOff,
+    scope:'history',editing:!!S.ui.chartEdit,hidden:S.ui.hide,avg:S.ui.avg,row:$('#avgRow'),win:S.ui.avgWin,off:S.ui.chartOff,
     onWin:v=>{S.ui.avgWin=v;save();renderMainChart()},
     onPan:v=>{S.ui.chartOff=v;save();renderMainChart()},
     toggle:id=>{if(id==='__avg')S.ui.avg=!S.ui.avg;else toggleHidden(S.ui.hide,id);save();renderMainChart()},
@@ -2390,12 +2492,19 @@ function renderMainChart(){
     empty:()=>`<div class="cempty"><div class="bars">${[30,50,22,60,40].map(h=>`<i style="height:${h}px"></i>`).join('')}</div>
       <div>Each routine you finish stacks up here by day.</div></div>`});
   $$('#rng button').forEach(b=>b.classList.toggle('on',b.dataset.r===S.ui.range));
+  markEditBtn($('#chartEdit'),S.ui.chartEdit);
+}
+function markEditBtn(b,on){
+  if(!b)return;
+  b.innerHTML=`${ui(on?'check':'edit','icon sm')}<span>${on?'Done':'Edit'}</span>`;
+  b.classList.toggle('on',!!on);
+  b.setAttribute('aria-pressed',String(!!on));
 }
 function renderArchiveChart(){
   const el=$('#archChart');if(!el)return;
   const per={d:'day',w:'week',m:'month'}[S.ui.arch[0]];
   drawChart({el,legend:$('#archLegend'),info:$('#archInfo'),entries:S.archive,range:S.ui.arch,
-    scope:'archive',hidden:S.ui.hideA,avg:S.ui.avgA,row:$('#archAvgRow'),win:S.ui.avgWinA,off:S.ui.chartOffA,
+    scope:'archive',editing:!!S.ui.archEdit,hidden:S.ui.hideA,avg:S.ui.avgA,row:$('#archAvgRow'),win:S.ui.avgWinA,off:S.ui.chartOffA,
     onWin:v=>{S.ui.avgWinA=v;save();renderArchiveChart()},
     onPan:v=>{S.ui.chartOffA=v;save();renderArchiveChart()},
     toggle:id=>{if(id==='__avg')S.ui.avgA=!S.ui.avgA;else toggleHidden(S.ui.hideA,id);save();renderArchiveChart()},
@@ -2403,6 +2512,7 @@ function renderArchiveChart(){
     lookup:id=>{const e=S.archive.findLast(x=>x.workoutId===id);return{c:e?.c||'#5b6180',n:e?.n||'Deleted routine'}},
     empty:()=>`<div class="cempty"><div>${S.archive.length?'Nothing archived in this period.':'When you delete a routine, its training moves here.'}</div></div>`});
   $$('#archRng button').forEach(b=>b.classList.toggle('on',b.dataset.a===S.ui.arch));
+  markEditBtn($('[data-set="archEdit"]'),S.ui.archEdit);
 }
 
 function loadSample(){
@@ -2432,7 +2542,7 @@ function renderDetail(){
   $('#dName').textContent=w.name;
   const tr=transTotal(w);
   $('#dStats').innerHTML=`<span class="wdur num">${t}<small>s</small></span><span class="wsub num">${fmt(t)} total<br>${plural(w.intervals.length,'interval')}${tr?` · ${fmtS(tr)} in transitions`:''}</span>`;
-  $('#dCues').textContent=`Start: ${cueLabel(wCue(w,'start'))} · End: ${cueLabel(wCue(w,'end'))} · Finish: ${cueLabel(wCue(w,'done'))}${countdownOn(w)?' · 3-2-1 beeps':''}${transOf(w)?` · ${fmtS(transOf(w))} between intervals`:''}`;
+  $('#dCues').textContent=`${w.nolog?'Not added to your chart · ':''}Start: ${cueLabel(wCue(w,'start'))} · End: ${cueLabel(wCue(w,'end'))} · Finish: ${cueLabel(wCue(w,'done'))}${countdownOn(w)?` · ${countdownOf(w)}s countdown`:''}${transOf(w)?` · ${fmtS(transOf(w))} between intervals`:''}`;
   $('#dRail').innerHTML=railHTML(w);markOverflow($('#dRail'));
   $('#dRows').innerHTML=w.intervals.length?timeline(w).segs.map(sg=>{
     if(sg.kind==='tr')return `<div class="dtr">${ui('gap','icon xs')}${fmtS(sg.dur/1000)} ${sg.k===0?'to get ready':sg.k>=w.intervals.length?'cool-off':'transition'}</div>`;
@@ -2653,7 +2763,7 @@ function renderSettings(){
       ${row('cue:tstart','gap','Transition starts',cueLabel(s.cues.tstart))}
       ${row('cue:tend','gap','Transition ends',cueLabel(s.cues.tend))}
       ${row('callouts','speak','Time callouts',calloutLabel(s.callouts))}
-      ${sw('countdown','3-2-1 countdown beeps',s.countdown)}
+      <div class="srow col cdrow">${ui('bell')}<span class="sl">Countdown beeps<small>Before each interval starts. The last three are the usual 3-2-1.</small></span>${cdChips(cdNorm(s.countdown),false)}</div>
       <label class="srow">${ui('sound')}<span class="sl">Volume</span><input type="range" id="setVol" min="0" max="1" step="0.05" value="${s.volume}"></label>
       <p class="snote">Routines and intervals can override these in the editor.</p>
     </section>
@@ -2669,7 +2779,7 @@ function renderSettings(){
       <div class="archead"><div class="cinfo num" id="archInfo"></div><div class="rng" id="archRng"><button data-a="d30">30D</button><button data-a="w12">12W</button><button data-a="m12">12M</button></div></div>
       <div class="chart archive" id="archChart"></div>
       <div class="avgrow hidden" id="archAvgRow"></div>
-      <div class="legend" id="archLegend"></div>
+      <div class="lgrow"><div class="legend" id="archLegend"></div><button class="cedit" data-set="archEdit"></button></div>
       ${row('archList','list','Archived sessions',plural(S.archive.length,'session'),'',!S.archive.length)}
       ${row('delArchive','trash','Delete archive data',plural(S.archive.length,'session'),'red',!S.archive.length)}
     </section>
@@ -2720,7 +2830,7 @@ function settingAction(k,el){
   if(k==='callouts')return calloutSheet('global',null,null,renderSettings);
 
   if(k==='shrinkVid'){s.shrinkVid=!s.shrinkVid;el.setAttribute('aria-checked',String(s.shrinkVid));save();return}
-  if(k==='countdown'||k==='haptics'||k==='wake'){
+  if(k==='haptics'||k==='wake'){
     s[k]=!s[k];el.setAttribute('aria-checked',String(s[k]));save();
     if(k==='haptics'&&s.haptics)buzz(20);
     if(k==='wake'){if(s.wake&&runs.some(r=>r.w&&!r.done))requestWake();else releaseWake()}
@@ -2733,6 +2843,7 @@ function settingAction(k,el){
     if(el.dataset.on==='1')return toast('Only the browser can undo this, in its site settings');
     return Store.persist().then(ok=>{toast(ok?'This browser will keep your data':'The browser didn’t allow that here');storageNote()});
   }
+  if(k==='archEdit'){S.ui.archEdit=!S.ui.archEdit;save();renderArchiveChart();return}
   if(k==='sessions')return sessionsSheet({scope:'history'});
   if(k==='archList')return sessionsSheet({scope:'archive'});
   if(k==='delArchive')return confirmSheet('Delete archive data?',`Removes ${plural(S.archive.length,'archived session')} from deleted routines. This can’t be undone.`,'Delete archive',()=>{S.archive=[];save();renderSettings();toast('Archive deleted')});
@@ -2960,6 +3071,9 @@ function colorSheet(tab='main'){
 function bindSettings(){
   const L=$('#setList');
   L.addEventListener('click',e=>{
+    const cd=e.target.closest('.cdrow [data-cd]');
+    if(cd){S.settings.countdown=+cd.dataset.cd;save();markChips(cd.parentElement,S.settings.countdown);
+      if(S.settings.countdown)countBeep(1);return}
     const a=e.target.closest('[data-set]');
     if(a){if(!a.disabled)settingAction(a.dataset.set,a);return}
     const g=e.target.closest('#archRng [data-a]');
@@ -3028,7 +3142,7 @@ let E=null,preview=null;
 function openEditor(id,from){
   const src=id?S.workouts.find(w=>w.id===id):null;
   const w=src?structuredClone(src):normRoutine({id:uid(),name:`Routine ${S.workouts.length+1}`,color:PALETTE[S.workouts.length%PALETTE.length],created:Date.now(),cues:{},intervals:[]});
-  E={w,isNew:!src,from:from||'dash',trash:[]};
+  E={w,isNew:!src,from:from||'dash',trash:[],orig:src?JSON.stringify(src):''};
   $('#eName').value=w.name;
   $('#editFab').dataset.side=S.ui.editFab;
   show('editor');renderEditor();$('#ilist').scrollTop=0;
@@ -3041,23 +3155,25 @@ function closeEditor(){
   w.name=w.name.trim()||'Untitled routine';
   const i=S.workouts.findIndex(x=>x.id===w.id);
   let kept=true;
+  const edited=!E.isNew&&E.orig!==JSON.stringify(w);
   if(E.isNew&&!w.intervals.length){kept=false;E=null;releaseMedia([...keysOf(w),...trash]);toast('Empty routine discarded')}
   else{if(i>=0)S.workouts[i]=w;else S.workouts.push(w);E=null;save();releaseMedia(trash)}
+  if(edited)markEdited(w.id);
   if(from==='detail'&&kept){if(screen!=='detail')openDetail(w.id);else renderDetail()}
   else{show('dash');renderDash()}
 }
 function updateTotal(){
   const w=E.w,t=total(w),tr=transTotal(w);
   /* The tail is dropped on narrow phones, where the chips need the room. */
-  $('#eTotal').innerHTML=w.intervals.length
+  $('#eTotal').innerHTML=`<span class="etxt">${w.intervals.length
     ?`${plural(w.intervals.length,'interval')}, ${fmt(t)}<span class="lbl">${tr?` incl. ${fmtS(tr)} transitions`:` (${t} s)`}</span>`
-    :'No intervals yet';
+    :'No intervals yet'}</span>`+(w.nolog?`<span class="nolog">${ui('off','icon xs')}not charted</span>`:'');
 }
 function renderEditor(){
   const w=E.w,tg=transOf(w);
   setTheme($('#editor'),w);
-  $('#eSounds').innerHTML=`${ui('sound','icon sm')}<span class="lbl">Sounds</span>`;
-  $('#eSounds').setAttribute('aria-label','Routine sounds');
+  $('#eSounds').innerHTML=`${ui('gear','icon sm')}<span class="lbl">Options</span>`;
+  $('#eSounds').setAttribute('aria-label','Routine options');
   const tl=tg?`${fmtS(tg)} gaps`:'Transitions';
   $('#eTrans').innerHTML=`${ui('gap','icon sm')}<span class="lbl">${esc(tl)}</span>`;
   $('#eTrans').setAttribute('aria-label',`Transitions: ${tg?fmtS(tg):'off'}`);
@@ -3113,8 +3229,8 @@ async function fillMedia(keep=new Map()){
   await Promise.all($$('#ilist .icard').map(async card=>{
     const it=E?.w.intervals[+card.dataset.i],slot=card.querySelector('.mslot');
     if(!slot||!it?.media)return;
-    const k=it.media.key+'|'+(it.media.fit||'cover'),old=keep.get(k);
-    if(old){keep.delete(k);slot.replaceChildren(old);watchVideo(old);return}
+    const k=it.media.key,old=keep.get(k);
+    if(old){keep.delete(k);old.style.objectFit=it.media.fit||'cover';slot.replaceChildren(old);watchVideo(old);return}
     const src=await Store.url(it.media.key);
     if(!slot.isConnected)return;
     const el=src?mediaEl(it.media.type,src,it.media.fit,'managed'):missingEl();
@@ -3501,27 +3617,35 @@ function cueSheet(target,after){
 }
 function workoutSoundsSheet(){
   const w=E.w;
+  const logged=!w.nolog;
   const lbl=which=>w.cues?.[which]?cueLabel(w.cues[which]):`Default: ${cueLabel(S.settings.cues[which])}`;
-  const cd=w.countdown==null?`Default: ${S.settings.countdown?'on':'off'}`:w.countdown?'On':'Off';
-  openSheet(`<h4>Routine sounds</h4><p>Used across this routine. Intervals can override the start and end sounds on their own cards; defaults come from Settings.</p>
+  const cdCur=w.countdown==null?'def':cdNorm(w.countdown);
+  openSheet(`<h4>Routine options</h4><p>Used across this routine. Intervals can override the start and end sounds on their own cards; defaults come from Settings.</p>
     <div class="menu">
+      <button data-keep="log" class="swrow" role="switch" aria-checked="${logged}">${ui('list')}Add finished runs to your chart<span class="switch"></span></button>
       <button data-v="start">${ui('play','icon fill')}Start of interval<span class="val">${esc(lbl('start'))}</span></button>
       <button data-v="end">${ui('stop','icon fill')}End of interval<span class="val">${esc(lbl('end'))}</span></button>
       <button data-v="done">${ui('flag')}Routine finished<span class="val">${esc(lbl('done'))}</span></button>
-      <button data-v="cd">${ui('bell')}3-2-1 countdown beeps<span class="val">${cd}</span></button>
       <button data-v="tr">${ui('gap')}Transitions<span class="val">${transOf(w)?fmtS(transOf(w)):'Off'}</span></button>
       <button data-v="co">${ui('speak')}Time callouts<span class="val">${esc(w.callouts?calloutLabel(w.callouts):`Default: ${calloutLabel(S.settings.callouts)}`)}</span></button>
-    </div>`,v=>{
+    </div>
+    <div class="cdsheet"><div class="sect">${ui('bell','icon sm')}Countdown beeps before each interval</div>${cdChips(cdCur,true,cdNorm(S.settings.countdown))}</div>`,v=>{
     if(v==='tr'){setTimeout(transSheet,0);return}
     if(v==='co'){setTimeout(()=>calloutSheet('routine',w,null,()=>setTimeout(workoutSoundsSheet,300)),0);return}
-    if(v==='cd'){
-      if(w.countdown==null)w.countdown=!S.settings.countdown;
-      else if(w.countdown!==S.settings.countdown)w.countdown=!w.countdown;
-      else delete w.countdown;
-      setTimeout(workoutSoundsSheet,0);return;
-    }
     setTimeout(()=>cueSheet({scope:'routine',w,it:null,which:v},()=>setTimeout(workoutSoundsSheet,300)),0);
-  });
+  },{onKeep:(k,el)=>{
+    if(k!=='log')return;
+    if(w.nolog)delete w.nolog;else w.nolog=true;
+    el.setAttribute('aria-checked',String(!w.nolog));
+    updateTotal();
+  }});
+  // Chips are not [data-v], so tapping one leaves the sheet where it is.
+  $('#sheetBody .cdsheet').onclick=e=>{
+    const b=e.target.closest('[data-cd]');if(!b)return;
+    if(b.dataset.cd==='def')delete w.countdown;else w.countdown=+b.dataset.cd;
+    markChips(b.parentElement,b.dataset.cd);
+    const n=countdownOf(w);if(n)countBeep(1);
+  };
 }
 
 function iconSheet(it){
@@ -3732,7 +3856,7 @@ function bindEditor(){
         openSheet(`<h4>${esc(it.title||`Interval ${i+1}`)}</h4><div class="menu">
           <button data-v="track">${ui('music')}${it.audio?'Replace or remove audio track':'Add audio track'}</button>
           <button data-v="callouts">${ui('speak')}Time callouts<span class="val">${esc(it.callouts?calloutLabel(it.callouts):'Default')}</span></button>
-          <button data-v="hold" class="${it.hold?'on':''}">${ui('hand')}Wait for a tap to start<span class="val">${it.hold?'On':'Off'}</span></button>
+          <button data-keep="hold" class="swrow ${it.hold?'on':''}" role="switch" aria-checked="${!!it.hold}">${ui('hand')}Wait for a tap to start<span class="switch"></span></button>
           ${it.media?.type==='video'||it.audio?`<button data-v="fitdur">${ui('watch')}Match duration to ${it.media?.type==='video'?'video':'audio'}</button>`:''}
           <button data-v="dup">${ui('copy')}Duplicate</button>
           <button data-v="up" ${i===0?'disabled':''}>${ui('up')}Move up</button>
@@ -3742,13 +3866,21 @@ function bindEditor(){
           if(v==='track'){setTimeout(()=>trackSheet(it),0);return}
           if(v==='fitdur'){matchDuration(it,it.media?.type==='video'?'media':'audio');return}
           if(v==='callouts'){setTimeout(()=>calloutSheet('interval',E.w,it),0);return}
-          if(v==='hold'){it.hold=!it.hold;renderEditor();toast(it.hold?'This interval will wait for a tap':'It starts on its own again');return}
+
           if(v==='dup')L.splice(i+1,0,{...structuredClone(it),id:uid()});
           if(v==='up'&&i>0)[L[i-1],L[i]]=[L[i],L[i-1]];
           if(v==='down'&&i<n-1)[L[i+1],L[i]]=[L[i],L[i+1]];
           if(v==='del'){stopPreview();L.splice(i,1);releaseMedia([it.media?.key,it.audio?.key,it.cues?.start?.key,it.cues?.end?.key])}
           renderEditor();
-        });
+        },{onKeep:(k,el)=>{
+          if(k!=='hold')return;
+          // A switch flips where it is; closing the menu for it made it flash.
+          it.hold=!it.hold;
+          el.setAttribute('aria-checked',String(it.hold));el.classList.toggle('on',it.hold);
+          const card=$(`#ilist .icard[data-i="${i}"] .ititle`);
+          if(card){card.querySelector('.hflag')?.remove();
+            if(it.hold)card.querySelector('.inum').insertAdjacentHTML('beforebegin',`<span class="hflag" title="Waits for a tap before it starts" aria-label="Waits for a tap before it starts">${ui('hand','icon sm')}</span>`)}
+        }});
       }
     }
   });
@@ -3794,7 +3926,7 @@ function openDial(i,fromEl,opts){
   D={i,mode:opts?(opts.value>=60?'m':'s'):(it.mode||'s'),dur:opts?Math.max(1,opts.value):it.duration,
     from:fromEl,drag:null,lastShown:null,onSet:opts?.onSet||null};
   const ov=$('#dial'),card=$('#dialCard');
-  card.innerHTML=dialHTML();card.style.setProperty('--c',E.w.color);
+  card.innerHTML=dialHTML();card.style.setProperty('--c',E?.w.color||getComputedStyle(document.body).getPropertyValue('--ac').trim()||'#FFD23F');
   ov.classList.remove('hidden');
   bindDial();updateDial();
   const f=flipFrom(fromEl);
@@ -3819,8 +3951,10 @@ function closeDial(commit){
   const it=D.onSet?null:E?.w.intervals[D.i];
   if(commit){if(D.onSet)D.onSet(D.dur,D.mode);else if(it){it.duration=D.dur;it.mode=D.mode}}
   const ov=$('#dial'),card=$('#dialCard'),from=D.from;
-  if(from.isConnected){from.innerHTML=miniClock(it);from.setAttribute('aria-label',`Duration ${fmt(it.duration)}, tap to change`)}
-  updateTotal();
+  // Only an interval's own clock face is redrawn; a chip that opened the dial for some
+  // other value (callout spacing, say) is left as it was.
+  if(it&&from.isConnected){from.innerHTML=miniClock(it);from.setAttribute('aria-label',`Duration ${fmt(it.duration)}, tap to change`)}
+  if(E)updateTotal();
   const target=from.isConnected?flipFrom(from):'scale(.8)';
   card.style.transition='transform .28s cubic-bezier(.4,0,.6,1),opacity .28s';
   card.style.transform=target;card.style.opacity='0';ov.classList.remove('open');
@@ -3916,7 +4050,7 @@ function bindDial(){
    Logic ticks every 100 ms; the runner redraws on rAF only while it is visible.  */
 const runs=[];
 let focusId=null,lastSave=0,wakeLock=null;
-const RUN_FIELDS=['id','wid','w','anchor','plan','pausedAt','active','tick','done','doneAt','logged','muted','created','scale','gateOk'];
+const RUN_FIELDS=['id','wid','w','anchor','plan','pausedAt','active','tick','done','doneAt','logged','muted','created','scale','gateOk','stale','fullT','synced','logId','skip'];
 const REPEAT_N={none:'',daily:'Every day',weekdays:'Weekdays',weekly:'Every week'};
 const workoutOf=r=>r?.w||S.workouts.find(x=>x.id===r?.wid)||null;
 const offsetMs=(w,i)=>timeline(w).segs.find(s=>s.kind==='int'&&s.idx===i)?.start??0;
@@ -3971,7 +4105,8 @@ function startNow(wid){
   const w=S.workouts.find(x=>x.id===wid);if(!w||!total(w))return;
   ensureAudio();unlockSpeech();prepAudio(w);
   const r=makeRun(wid),now=Date.now();
-  Object.assign(r,{w:snapshot(w),anchor:now,tick:now,liveBegin:true});
+  freshCopy(r,w);
+  Object.assign(r,{anchor:now,tick:now,liveBegin:true});
   focusId=r.id;persistRuns();requestWake();tickRuns();openRunner(r.id);
 }
 /* New run from the timing sheet: past anchors start part-way through, future ones wait. */
@@ -3984,7 +4119,8 @@ function planRun(wid,plan){
   ensureAudio();unlockSpeech();prepAudio(w);
   const r=makeRun(wid,{...plan});
   if(a<=now){
-    Object.assign(r,{w:snapshot(w),anchor:plan.mode==='jump'?a:now,tick:now,liveBegin:true});
+    freshCopy(r,w);
+    Object.assign(r,{anchor:plan.mode==='jump'?a:now,tick:now,liveBegin:true,synced:true});
     if(plan.mode!=='jump')scaleRunTo(r,endAt,now);
     focusId=r.id;persistRuns();requestWake();tickRuns();openRunner(r.id);
   }else{
@@ -4010,6 +4146,16 @@ function kidOf(r){
   return runs.find(x=>x.parent===r.id&&x.pseg===si&&isLive(x))||null;
 }
 const deepestOf=r=>{let x=r,k;while(x&&(k=kidOf(x)))x=k;return x||r};
+/* A subroutine's run goes straight after the run it belongs to (and after anything
+   already nested there), so the tabs read as a path no matter what else started in
+   between. Parents staying ahead of their children is also what syncKids relies on. */
+function nestRun(c,p){
+  const i=runs.indexOf(c);if(i>=0)runs.splice(i,1);
+  let j=runs.indexOf(p);
+  if(j<0){runs.push(c);return}
+  while(j+1<runs.length&&inChain(p.id,runs[j+1]))j++;
+  runs.splice(j+1,0,c);
+}
 const rootOf=r=>{let x=r,p;while(x&&(p=parentOf(x)))x=p;return x||r};
 const treeOf=r=>{const root=rootOf(r);return runs.filter(x=>rootOf(x)===root)};
 /* An interval can be set to wait for you before it starts. The whole nest of runs
@@ -4104,8 +4250,11 @@ function syncKids(){
       if(runs.some(x=>x.parent===r.id&&x.pseg===p.si))continue;
       const seg=p.seg,now=Date.now();
       const c=makeRun(it.sub?.id||it.subW.id);
+      // Announced only if it is starting now, not when rebuilt part-way through (after
+      // a reload, or when an edit is picked up) — the interval it is on already spoke.
       Object.assign(c,{parent:r.id,pseg:p.si,src:it.subW,nolog:true,muted:r.muted,
-        anchor:anchorOf(r)+seg.start,pausedAt:r.pausedAt,tick:now,liveBegin:true,created:now});
+        anchor:anchorOf(r)+seg.start,pausedAt:r.pausedAt,tick:now,liveBegin:false,created:now});
+      nestRun(c,r);
       fitKid(c,seg);
       prepAudio(c.w);
       // Follow the handover down: what is on screen should be what is actually on.
@@ -4118,7 +4267,8 @@ function syncKids(){
   return changed;
 }
 function tickRuns(){
-  const now=Date.now();let changed=syncKids();
+  const now=Date.now();let changed=applyEdits();
+  changed=syncKids()||changed;
   for(const r of [...runs]){
     if(r.done)continue;
     const src=workoutOf(r);
@@ -4136,7 +4286,7 @@ function tickRuns(){
       continue;
     }
     if(r.wait){r.wait=false;changed=true}
-    if(!r.w){r.w=snapshot(src);r.anchor=a;prepAudio(r.w);requestWake();changed=true}
+    if(!r.w){freshCopy(r,src);r.anchor=a;prepAudio(r.w);requestWake();changed=true}
     const w=r.w,tl=timeline(w),p=posAt(w,el);
     if(p.done){
       if(isKid(r)){removeRun(r,true);changed=true;continue}
@@ -4174,7 +4324,7 @@ function tickRuns(){
     if(!r.pausedAt&&!r.muted&&countdownOn(w)){
       const whole=Math.ceil((tl.nextInt[p.si]-el)/1000);
       if(whole!==r.lastWhole){
-        if(!r.jumped&&r.lastWhole===whole+1&&whole>=1&&whole<=3)countBeep();
+        if(!r.jumped&&r.lastWhole===whole+1&&whole>=1&&whole<=countdownOf(w))countBeep(whole);
         r.lastWhole=whole;
       }
     }
@@ -4229,12 +4379,28 @@ function restartTrack(r){
     r.track=playBuffer(b,q.el/1000,!!it.audio.loop);
   });
 }
+/* Whether a routine is kept off the chart. The live routine decides, so switching it
+   off during a run applies to that run too. */
+const unlogged=r=>{const w=S.workouts.find(x=>x.id===r.wid);return !!(w?w.nolog:r.w?.nolog)};
 function logRun(r){
   const sec=Math.round(r.active/1000);
   if(r.logged||r.nolog||!r.w||sec<5)return;
+  if(unlogged(r)){r.skip='nolog';return}
   r.logged=true;
   const e={id:uid(),date:dayKey(Date.now()),at:Date.now(),workoutId:r.wid,seconds:sec,c:r.w.color,n:r.w.name};
+  // A synced run was squeezed, stretched or started part-way, so it did not take the
+  // routine's own length. Both are kept; what it took is what counts unless you say.
+  const full=Math.round(r.fullT||0);
+  if(r.synced&&full>0&&Math.abs(full-sec)>=5){e.actual=sec;e.full=full;e.how='actual'}
+  r.logId=e.id;
   (S.workouts.some(w=>w.id===r.wid)?S.history:S.archive).push(e);
+  save();
+}
+const findSession=id=>id?S.history.find(e=>e.id===id)||S.archive.find(e=>e.id===id)||null:null;
+function setSessionHow(e,how){
+  if(!e||e.full==null)return;
+  e.how=how==='full'?'full':'actual';
+  e.seconds=e.how==='full'?e.full:e.actual;
   save();
 }
 function finishRun(r,live){
@@ -4327,7 +4493,8 @@ function beginNow(r){
   const w=workoutOf(r);if(!w)return;
   ensureAudio();unlockSpeech();
   const now=Date.now();
-  Object.assign(r,{w:r.w||snapshot(w),anchor:now,pausedAt:null,tick:now,liveBegin:true,lastSi:null});
+  freshCopy(r,w);
+  Object.assign(r,{anchor:now,pausedAt:null,tick:now,liveBegin:true,lastSi:null});
   persistRuns();tickRuns();
   if(runVisible())renderRunner();
 }
@@ -4385,6 +4552,87 @@ function startAgain(r){
   removeRun(r);
   startNow(wid);
 }
+/* ---------- Edits reaching a routine that is already running ----------
+   A run works from its own frozen copy, so editing a routine mid-run changes nothing
+   until that copy is replaced. It is replaced at the end of whichever interval is
+   playing — never mid-interval, where the clock would jump — and rebuilt as though
+   the new version had been there from the start: the run lands on the same place in
+   the new structure, and any subroutine that now belongs there starts up with it. */
+function usesRoutine(w,id,depth=0){
+  if(!w||depth>SUB_DEPTH)return false;
+  if(w.id===id)return true;
+  return w.intervals.some(it=>it.subW&&usesRoutine(it.subW,id,depth+1));
+}
+function markEdited(id){
+  let n=0;
+  for(const r of runs){
+    if(isKid(r)||!r.w||r.done)continue;
+    if(r.wid===id||usesRoutine(r.w,id)){r.stale=true;n++}
+  }
+  if(n){persistRuns();toast(n>1?'Running copies take the changes at the end of their current intervals':'The running copy takes the changes at the end of its current interval')}
+}
+/* Where a run tree is now: a segment at each level, root to deepest, with how far in. */
+function treePath(root){
+  const path=[];
+  for(let r=root;r&&r.w;r=kidOf(r)){
+    const p=posAt(r.w,elapsedOf(r));
+    if(p.done||!p.seg)break;
+    path.push({kind:p.seg.kind,idx:p.seg.kind==='int'?p.seg.idx:p.seg.k,off:p.el});
+  }
+  return path;
+}
+/* The same place in a new structure. A level that no longer exists folds into the one
+   above it (its offset already covers everything nested beneath); an interval that
+   was removed lands on the start of the nearest one still there. */
+function elAtPath(w,path){
+  let el=0,cur=w;
+  for(let d=0;d<path.length&&cur;d++){
+    const step=path[d],segs=timeline(cur).segs;
+    if(!segs.length)return el;
+    const si=segs.findIndex(s=>s.kind===step.kind&&(s.kind==='int'?s.idx:s.k)===step.idx);
+    if(si<0){
+      const k=segs.findIndex(s=>s.kind==='int'&&s.idx===Math.min(step.idx,cur.intervals.length-1));
+      return el+segs[Math.max(0,k)].start;
+    }
+    const s=segs[si],it=s.kind==='int'?cur.intervals[s.idx]:null;
+    el+=s.start;
+    if(d+1<path.length&&it?.subW){cur=it.subW;continue}
+    return el+Math.min(step.off,Math.max(0,s.dur-50));
+  }
+  return el;
+}
+const segId=(w,si)=>{const s=w&&timeline(w).segs[si];return s?s.kind+(s.kind==='int'?s.idx:s.k):''};
+function rebuildTree(root){
+  const src=S.workouts.find(w=>w.id===root.wid);
+  if(!src||!root.w||root.done){root.stale=false;return false}
+  const path=treePath(root),was=segId(root.w,root.lastSi),now=Date.now();
+  // A run fitted to a deadline keeps it: the rest is re-fitted after the rebuild.
+  const fitted=root.scale&&Math.abs(root.scale-1)>.01&&!root.pausedAt;
+  const endAt=fitted?now+(timeline(root.w).total-elapsedOf(root,now)):0;
+  for(const k of treeOf(root))if(k!==root)removeRun(k,true);
+  const nw=snapshot(src);
+  Object.assign(root,{w:nw,fullT:Math.round(timeline(nw).total/1000),scale:1,stale:false});
+  root.anchor=(root.pausedAt??now)-elAtPath(nw,path);
+  if(fitted&&endAt>now+5000)scaleRunTo(root,endAt,now);
+  // So the root only announces a change if it really has moved on.
+  const segs=timeline(root.w).segs,k=segs.findIndex((s,i)=>segId(root.w,i)===was);
+  root.lastSi=k<0?null:k;
+  prepAudio(nw);
+  return true;
+}
+/* Picked up the moment the interval that was playing comes to an end. */
+function applyEdits(){
+  let did=false;
+  for(const root of [...runs]){
+    if(isKid(root)||!root.stale||!root.w||root.done||isWaiting(root)||root.pausedAt)continue;
+    const leaf=deepestOf(root);
+    if(!leaf.w||leaf.lastSi==null)continue;
+    const p=posAt(leaf.w,elapsedOf(leaf));
+    if(p.done||p.si!==leaf.lastSi)did=rebuildTree(root)||did;
+  }
+  return did;
+}
+
 /* Straight past the end of a run, which finishes it. */
 function runPastEnd(r){
   const tl=timeline(r.w);
@@ -4429,6 +4677,7 @@ function jumpRun(r,delta){
 }
 function syncRun(r,plan){
   const w=r.w,now=Date.now(),a=planAnchor(w,plan),T=timeline(w).total,endAt=a+T;
+  r.synced=true;if(r.fullT==null)r.fullT=Math.round(T/1000);
   if(plan.mode!=='jump'&&a<=now){
     if(endAt-now<5000)return toast('That is too close to fit the rest in');
     const el=Math.max(0,elapsedOf(r,now));
@@ -4452,7 +4701,8 @@ function updatePlan(r,plan){
   if(a<=now&&a+T-now<5000)return toast('That time is already past the end of the routine');
   r.plan={...plan};
   if(a<=now&&plan.mode!=='jump'){
-    Object.assign(r,{w:r.w||snapshot(w),anchor:now,pausedAt:null,liveBegin:true});
+    freshCopy(r,w);
+    Object.assign(r,{anchor:now,pausedAt:null,liveBegin:true,synced:true});
     scaleRunTo(r,a+T,now);
   }else if(r.w&&r.anchor!=null){r.anchor=a;r.pausedAt=null;if(a<=now)r.liveBegin=true}
   else if(a<=now)r.liveBegin=true;
@@ -4576,6 +4826,22 @@ function renderRunner(){
   fillTabs();
   if(multi)tabIntoView();
 }
+/* A synced run did not take the routine's own length. Both are on offer; what it
+   actually took is what gets counted unless you say otherwise. */
+function showLogPick(r){
+  const box=$('#rLog'),e=r.done?findSession(r.logId):null;
+  if(!e||e.full==null){box.classList.add('hidden');box.innerHTML='';return}
+  const opt=(k,lab,v)=>`<button class="chip ${(e.how||'actual')===k?'on':''}" data-how="${k}" aria-pressed="${(e.how||'actual')===k}">${lab} · ${fmt(v)}</button>`;
+  box.innerHTML=`<span class="lgl">Counted as</span><div class="lgopts">${opt('actual','What it took',e.actual)}${opt('full','Full routine',e.full)}</div>`;
+  box.classList.remove('hidden');
+  box.onclick=ev=>{
+    const b=ev.target.closest('[data-how]');if(!b)return;
+    setSessionHow(e,b.dataset.how);
+    showLogPick(r);
+    if(screen==='dash')renderMainChart();
+    refreshScreen();haptic(10);
+  };
+}
 function showInterval(r){
   const w=workoutOf(r),box=$('#rMedia'),run=$('#run');
   RE.shown={};RE.mtok=null;
@@ -4586,8 +4852,9 @@ function showInterval(r){
     $('#rTitle').textContent=wait?'Starts in':'Routine complete';
     $('#rIcon').innerHTML=wait?ui('clock'):'';
     $('#rNext').textContent=wait?`${whenLabel(anchorOf(r))}${repeats(r.plan)?` · ${REPEAT_N[r.plan.repeat]}`:''}`
-      :`${r.logged?'Added to your chart':'Too short for your chart'}\nStart again below`;
+      :`${r.logged?'Added to your chart':r.skip==='nolog'?'This routine isn\u2019t charted':'Too short for your chart'}\nStart again below`;
     $('#rNext').classList.add('wrap');
+    showLogPick(r);
     $('#rRail').innerHTML=railHTML(w,wait?null:w.intervals.length);markOverflow($('#rRail'));
     box.replaceChildren();RE.mkey='';RE.vdur=0;run.classList.add('nomedia');railGeo();
     return;
@@ -4595,7 +4862,7 @@ function showInterval(r){
   const p=posAt(w,elapsedOf(r)),seg=p.seg,tr=seg.kind==='tr',it=w.intervals[p.idx];
   const out=tr&&seg.k>=w.intervals.length;
   RE.si=p.si;
-  $('#rNext').classList.remove('wrap');
+  $('#rNext').classList.remove('wrap');$('#rLog').classList.add('hidden');
   run.classList.toggle('trans',tr);
   if(tr){
     $('#rTitle').textContent=seg.k===0?'Get ready':out?'Cool-off':'Transition';
@@ -4914,7 +5181,7 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const APP_BUILD='2026.09.20.3';
+const APP_BUILD='2026.09.22';
 const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
@@ -5198,6 +5465,7 @@ function bind(){
   $('#dAgain').onclick=()=>startNow(detailId);
   $('#dRuns').addEventListener('click',onRunRowAction);
   $('#rng').onclick=e=>{const b=e.target.closest('[data-r]');if(!b)return;S.ui.range=b.dataset.r;S.ui.chartOff=0;save();renderMainChart()};
+  $('#chartEdit').onclick=()=>{S.ui.chartEdit=!S.ui.chartEdit;save();renderMainChart();if(S.ui.chartEdit)toast('Tap a bar to edit the sessions in it')};
   navInit();setupPWA();bindDrawer();bindSettings();bindEditor();bindRun();bindCamera();bindDraw();bindWatch();bindSheetDrag();bindUpdate();
   let chartFrame=0;
   new ResizeObserver(()=>{cancelAnimationFrame(chartFrame);chartFrame=requestAnimationFrame(renderMainChart)}).observe($('#chart'));
