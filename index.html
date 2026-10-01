@@ -101,7 +101,16 @@ input{font:inherit;color:inherit}
 .dhandle::after{content:"";position:absolute;left:50%;top:9px;width:44px;height:5px;margin-left:-22px;border-radius:3px;background:var(--s3)}
 .drawer .chead{flex:none;touch-action:none;cursor:grab;padding-bottom:4px}
 .chead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
-.ctitle{font-family:var(--disp);font-size:22px;font-weight:700;line-height:1.1}
+/* The heading gives way before the range buttons do, and both give a little on a
+   narrow phone, so "Routine History" fits beside them rather than being cut. */
+.chead>div:first-child{min-width:0;flex:1}
+.ctitle{font-family:var(--disp);font-size:clamp(15px,4.05vw,22px);font-weight:700;line-height:1.15;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chead .rng{flex:none}
+@media (max-width:430px){
+  .rng{padding:2px}
+  .rng button{padding:6px 7px;font-size:12px}
+}
 .cinfo{color:var(--mu);font-size:13px}
 .lgrow{display:flex;align-items:center;gap:8px;min-width:0}
 .lgrow .legend{flex:1;min-width:0}
@@ -254,6 +263,25 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 .cue em{font-style:normal;color:var(--mu);font-weight:500}
 .cue.inh span{color:var(--mu);font-weight:500}
 .hint{flex:none;border:2px dashed var(--line);border-radius:var(--r);padding:26px 20px;color:var(--mu);text-align:center;font-size:15px;line-height:1.4}
+/* ---------- Folders ----------
+   A folder card is the same card as a routine, with one row instead of three. */
+.crumbs{flex:none;display:flex;align-items:center;gap:2px;padding:2px 14px 6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.crumbs::-webkit-scrollbar{display:none}
+.crumbs.hidden{display:none}
+.crumb{flex:none;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;color:var(--mu);font-weight:600;font-size:14px;white-space:nowrap}
+.crumb:active{background:var(--s2)}
+.crumb.on{color:var(--tx);background:var(--s1)}
+.crumbs .icon.xs{width:14px;height:14px;flex:none}
+.wcard.fcard{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"open more";padding:4px 6px 4px 18px;align-items:center}
+.fopen{grid-area:open;display:flex;align-items:center;gap:12px;min-width:0;width:100%;padding:12px 2px;text-align:left}
+.fopen .fic{width:26px;height:26px;flex:none;color:var(--c)}
+.fmeta{display:flex;flex-direction:column;min-width:0;flex:1}
+.fmeta b{font-family:var(--disp);font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fmeta small{color:var(--mu);font-size:13px}
+.fopen .icon.mu{width:18px;height:18px;flex:none;color:var(--mu)}
+.fmore{grid-area:more;position:static}
+.fempty{margin-top:4px}
+.fempty b{display:block;margin-bottom:6px;color:var(--tx);font-family:var(--disp);font-size:17px}
 .hint b{display:block;color:var(--tx);font-size:18px;margin-bottom:4px}
 
 /* ---------- Dial ---------- */
@@ -360,7 +388,9 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 .rhmid{flex:1;min-width:0;text-align:center}
 .rname{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @keyframes holdpulse{0%,100%{opacity:1}50%{opacity:.45}}
-#run.held .rarc{animation:holdpulse 1.6s ease-in-out infinite}
+/* Waiting for a tap: the breathing goes on the ring's wrapper, so it cannot
+   replace the sweep underneath and leave a full, finished-looking circle. */
+#run.held .rsweep{animation:holdpulse 1.6s ease-in-out infinite}
 #run.held .rctrl .big{animation:holdpulse 1.6s ease-in-out infinite}
 .rname.nested{display:flex;align-items:center;justify-content:center;gap:5px}
 .rname.nested .icon{color:var(--c);flex:none}
@@ -378,7 +408,38 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 #run.nomedia .rstage{--rw:min(78cqw,calc(100cqh - 82px),360px)}
 .ring svg{width:100%;height:100%;display:block}
 .rtrack{fill:none;stroke:rgba(255,255,255,.08);stroke-width:9}
-.rarc{fill:none;stroke:var(--c);stroke-width:9;stroke-linecap:round;stroke-dasharray:565.49}
+/* ---------- the ring ----------
+   It drains: whole at the start of an interval, gone at the end. It is drawn by
+   rotation rather than by a changing arc length, and that is the whole point. A
+   growing stroke-dashoffset has to be recalculated and repainted on every frame
+   — sixty style recalculations a second for the length of a workout, whether or
+   not anyone is looking. A rotation is handed to the compositor once and costs
+   the main thread nothing after that.
+
+   Two halves do the work. The right one holds a half-ring that covers it
+   completely for the first half of the interval and then turns away, emptying it
+   from six o'clock back round to twelve; the left one does the same during the
+   first half, and is empty by the time the right one starts. Each piece is an SVG
+   arc, so the rounded end is kept. 2*pi*90 = 565.49, half of it is 282.74. */
+.rsweep{position:absolute;inset:0}
+.rsweep.off{display:none}
+.rmask{position:absolute;top:0;bottom:0;width:50%;overflow:hidden}
+.rmask.r{right:0}
+.rmask.l{left:0}
+.rspin{position:absolute;top:0;bottom:0;width:200%;
+  animation:drain var(--half,500ms) linear both;animation-play-state:var(--play,running)}
+.rmask.r .rspin{left:-100%;animation-delay:var(--dR,0ms)}
+.rmask.l .rspin{left:0;animation-delay:var(--dL,0ms)}
+/* A half-ring parked against the dividing line still shows its rounded end just
+   across it — a dot at six o'clock through the second half of an interval, and
+   one at twelve once it has run out. The wedge is taken out of the picture when
+   its turn ends, by a single timer set for that moment: animating anything else
+   on the spinner, even visibility, would take the rotation off the compositor
+   and put the whole sweep back on the main thread sixty times a second. */
+.rmask.spent{visibility:hidden}
+.rspin svg{width:100%;height:100%;display:block}
+.rarc{fill:none;stroke:var(--c);stroke-width:9;stroke-linecap:round;stroke-dasharray:282.74 565.49}
+@keyframes drain{from{transform:rotate(180deg)}to{transform:rotate(0deg)}}
 .rin{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 15%;pointer-events:none}
 .ricon{line-height:0}
 .ricon .icon{width:30px;height:30px;width:clamp(16px,9cqi,32px);height:clamp(16px,9cqi,32px);color:var(--c)}
@@ -715,7 +776,13 @@ body.watching #sheet{z-index:70}
 #toast.act{pointer-events:auto;display:flex;align-items:center;gap:14px;cursor:pointer}
 #toast.act b{text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
 
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+  /* The ring is the one animation that carries information: without it there is
+     nothing on screen showing how far into an interval you are. */
+  .rspin{animation-name:drain!important;animation-duration:var(--half,500ms)!important;
+    animation-timing-function:linear!important;animation-fill-mode:both!important}
+}
 /* ---------- Wide screens: centered content ---------- */
 @media (min-width:700px) and (min-height:601px){
   .cards,.dlist,.setlist,.runs{padding-left:max(14px,calc(50% - 320px));padding-right:max(14px,calc(50% - 320px))}
@@ -799,14 +866,15 @@ body.watching #sheet{z-index:70}
     </div>
     <button class="updbar hidden" id="updBar" aria-label="Reload to use the new version"></button>
     <div class="runs" id="runs" aria-label="Running and upcoming routines"></div>
+    <nav class="crumbs hidden" id="crumbs" aria-label="Folders"></nav>
     <div class="cards" id="cards"></div>
     <i class="dz l"></i><i class="dz r"></i>
     <button class="fab hidden" id="dashFab" aria-label="New routine (hold to move)"></button>
   </div>
-  <section class="drawer" id="drawer" data-snap="peek" aria-label="Time trained">
+  <section class="drawer" id="drawer" data-snap="peek" aria-label="Routine History">
     <button class="dhandle" id="drawerHandle" aria-label="Show chart" aria-expanded="false"></button>
     <div class="chead" id="chartHead">
-      <div><div class="ctitle">Time trained</div><div class="cinfo num" id="chartInfo">Minutes per day</div></div>
+      <div><div class="ctitle">Routine History</div><div class="cinfo num" id="chartInfo">Minutes per day</div></div>
       <div class="rng" id="rng"><button data-r="d7">7D</button><button data-r="d14">14D</button><button data-r="d30">30D</button><button data-r="w12">12W</button><button data-r="m12">12M</button></div>
     </div>
     <div class="chart" id="chart"></div>
@@ -820,6 +888,7 @@ body.watching #sheet{z-index:70}
   <div class="ehead">
     <button class="iconbtn" id="dBack" aria-label="Back"></button>
     <div class="dname" id="dName"></div>
+    <button class="iconbtn" id="dMore" aria-label="Routine options"></button>
     <button class="iconbtn" id="dEdit" aria-label="Edit routine"></button>
   </div>
   <div class="dstats" id="dStats"></div>
@@ -863,7 +932,7 @@ body.watching #sheet{z-index:70}
     <div class="rmedia" id="rMedia"></div>
     <div class="rcore">
       <div class="ring">
-        <svg viewBox="0 0 200 200"><circle class="rtrack" cx="100" cy="100" r="90"/><circle id="rArc" class="rarc" cx="100" cy="100" r="90" transform="rotate(-90 100 100)"/></svg>
+        <svg viewBox="0 0 200 200"><circle class="rtrack" cx="100" cy="100" r="90"/></svg><div class="rsweep" id="rSweep"><div class="rmask r"><div class="rspin"><svg viewBox="0 0 200 200"><circle class="rarc" cx="100" cy="100" r="90" transform="rotate(90 100 100)"/></svg></div></div><div class="rmask l"><div class="rspin"><svg viewBox="0 0 200 200"><circle class="rarc" cx="100" cy="100" r="90" transform="rotate(-90 100 100)"/></svg></div></div></div>
         <div class="rin"><div class="ricon" id="rIcon"></div><div class="rtitle" id="rTitle"></div><div class="rtime num" id="rTime"></div></div>
       </div>
       <div class="rseek" id="rSeek">
@@ -1069,6 +1138,8 @@ const UI={plus:'M12 5v14M5 12h14',edit:'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',back:'
   sound:'M4 9h4l5-4v14l-5-4H4zM17 9a4 4 0 0 1 0 6M19.5 6.5a8 8 0 0 1 0 11',
   speak:'M4 5h16v11H10l-5 4v-4H4z',stop:'M6 6h12v12H6z',chev:'M6 9l6 6 6-6',
   flip:'M4 12a8 8 0 0 1 14-5.3L20 9M20 12a8 8 0 0 1-14 5.3L4 15M20 4v5h-5M4 20v-5h5',
+  folder:'M3 7h6l2 2h10v10H3z', home:'M4 11l8-7 8 7M6 10v10h12V10',
+  move:'M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3',
   crop:'M6 2v14h14M2 6h14v14',off:'M4 9h4l5-4v14l-5-4H4zM17 9l5 6M22 9l-5 6',
   clock:'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M12 7v5l3.5 2',
   gear:'M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
@@ -1222,7 +1293,7 @@ const Store=(()=>{
 const PLACES=[['behind','Behind the timer'],['panel','Its own panel']];
 const placeOf=m=>m&&m.place==='panel'?'panel':'behind';
 const DEF_SETTINGS={cues:{start:{kind:'none'},end:{kind:'builtin',id:'chime'},done:{kind:'builtin',id:'levelup'},tstart:{kind:'builtin',id:'tick'},tend:{kind:'none'}},countdown:3,volume:.8,haptics:true,wake:true,trans:0,callouts:{mode:'off'},ovl:.45,shrinkVid:false};
-let S={v:4,workouts:[],history:[],archive:[],runs:[],settings:structuredClone(DEF_SETTINGS),ui:{dashFab:'right',editFab:'right',range:'d7',arch:'d30',drawer:'peek',hide:[],hideA:[],avg:true,avgA:true,avgWin:0,avgWinA:0,chartOff:0,chartOffA:0,chartEdit:false,archEdit:false}};
+let S={v:5,workouts:[],folders:[],history:[],archive:[],runs:[],settings:structuredClone(DEF_SETTINGS),ui:{dashFab:'right',editFab:'right',range:'d7',arch:'d30',drawer:'peek',hide:[],hideA:[],avg:true,avgA:true,avgWin:0,avgWinA:0,chartOff:0,chartOffA:0,chartEdit:false,archEdit:false,at:null}};
 function save(){Store.saveState(S)}
 /* Brings any older saved state up to date. History from routines that no longer exist
    moves to the archive. */
@@ -1251,9 +1322,54 @@ function migrate(v){
   s.history=hist.filter(e=>ids.has(e.workoutId));
   s.archive=[...(Array.isArray(s.archive)?s.archive:[]).filter(e=>e&&e.date),...hist.filter(e=>!ids.has(e.workoutId))];
   s.runs=Array.isArray(s.runs)?s.runs.filter(r=>r&&r.id&&r.wid):[];
-  s.v=4;
+  /* Folders. A routine names the folder it sits in, a folder names the one it
+     sits in, and nothing else changes — a save from before folders existed comes
+     up with everything at the top level, which is where it already was. */
+  s.folders=(Array.isArray(s.folders)?s.folders:[]).filter(f=>f&&f.id).map(f=>({
+    id:String(f.id),name:String(f.name||'Folder').slice(0,40),
+    color:/^#[0-9a-f]{6}$/i.test(f.color||'')?f.color:'#5AA9FF',
+    parent:f.parent?String(f.parent):null,
+  }));
+  const fids=new Set(s.folders.map(f=>f.id));
+  for(const f of s.folders)if(f.parent&&!fids.has(f.parent))f.parent=null;
+  // A parent chain that comes back round to itself would hang every walk of it.
+  for(const f of s.folders){
+    const seen=new Set([f.id]);
+    for(let p=f.parent;p;){
+      if(seen.has(p)){f.parent=null;break}
+      seen.add(p);p=s.folders.find(x=>x.id===p)?.parent||null;
+    }
+  }
+  for(const w of s.workouts)if(!w.folder||!fids.has(w.folder))w.folder=null;
+  if(s.ui.at&&!fids.has(s.ui.at))s.ui.at=null;
+  s.v=5;
   return s;
 }
+/* ---------- Folders ----------
+   A flat list with a parent each, which is all nesting needs: everything else
+   here is a walk over it. */
+const folderOf=id=>S.folders.find(f=>f.id===id)||null;
+const foldersIn=at=>S.folders.filter(f=>(f.parent||null)===(at||null));
+const routinesIn=at=>S.workouts.filter(w=>(w.folder||null)===(at||null));
+const folderName=f=>f?.name||'Folder';
+/* Every folder from the top down to this one. */
+function trail(id){
+  const out=[];
+  for(let f=folderOf(id),g=0;f&&g<32;f=folderOf(f.parent),g++)out.unshift(f);
+  return out;
+}
+/* Would moving `id` into `at` put it inside itself? */
+function folderLoops(id,at){
+  for(let f=folderOf(at),g=0;f&&g<32;f=folderOf(f.parent),g++)if(f.id===id)return true;
+  return at===id;
+}
+/* Everything below a folder, folders and routines alike. */
+function below(id,out={f:[],w:[]}){
+  for(const f of foldersIn(id)){out.f.push(f);below(f.id,out)}
+  for(const w of routinesIn(id))out.w.push(w);
+  return out;
+}
+const atNow=()=>(S.ui.at&&folderOf(S.ui.at)?S.ui.at:(S.ui.at=null));
 
 /* Would putting `cand` inside `hostId` come back round to itself? */
 function subLoops(hostId,candId,depth=0){
@@ -1266,6 +1382,7 @@ function subLoops(hostId,candId,depth=0){
 function normRoutine(w){
   w.id=String(w.id||uid());w.name=String(w.name||'Routine');w.color=w.color||PALETTE[0];
   w.created=+w.created||0;w.cues=w.cues&&typeof w.cues==='object'?w.cues:{};
+  w.folder=w.folder?String(w.folder):null;
   w.intervals=(Array.isArray(w.intervals)?w.intervals:[]).map(it=>({id:uid(),title:'',icon:null,iconImg:null,duration:30,mode:'s',media:null,audio:null,cues:{},...it,hold:!!it.hold}));
   const secs=x=>typeof x==='number'&&isFinite(x)&&x>=0;
   if(!secs(w.trans))delete w.trans;
@@ -1359,8 +1476,92 @@ function ensureAudio(){
   return actx;
 }
 function setVolume(v){S.settings.volume=v;if(master)master.gain.value=v}
+/* ---------- keeping the speaker awake ----------
+   An amplifier that has been idle powers itself down, and the first fraction of a
+   second of whatever comes next is swallowed — which is how a callout after a long
+   quiet stretch used to lose its first syllable. Two things answer that.
+
+   While a routine runs, an inaudible signal (about -80 dBFS, far under any noise
+   floor) holds the path open. On a phone it also marks the tab as playing media,
+   which is what keeps it alive in the background.
+
+   When that loop is not running — previewing a sound in the editor, say — a short
+   inaudible ramp is scheduled just ahead of anything that follows a long silence. */
+let keepSrc=null,keepBuf=null,keepAt=-1e9,lastAt=0;
+function keepBuffer(){
+  if(keepBuf&&keepBuf.sampleRate===actx.sampleRate)return keepBuf;
+  const n=Math.floor(actx.sampleRate*2);
+  keepBuf=actx.createBuffer(1,n,actx.sampleRate);
+  const d=keepBuf.getChannelData(0);
+  // Dither rather than digital silence: some hardware treats a run of exact zeroes
+  // as nothing to play and powers down anyway.
+  for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*1e-4;
+  return keepBuf;
+}
+function keepAwake(on){
+  const c=on?ensureAudio():actx;
+  if(!c)return;
+  if(!on){if(keepSrc){try{keepSrc.stop()}catch(e){}keepSrc=null}return}
+  if(keepSrc)return;
+  try{
+    const s=c.createBufferSource();s.buffer=keepBuffer();s.loop=true;
+    s.connect(c.destination);           // not through master: volume must not mute it
+    s.start();keepSrc=s;keepAt=c.currentTime;
+  }catch(e){}
+}
+/* `at` is a time on the audio clock. Returns nothing; it only opens the path. */
+function prime(at){
+  if(!actx)return;
+  // The keepalive covers this, but not in its own first moments: the opening cue of
+  // a routine starts alongside it.
+  if(keepSrc&&actx.currentTime-keepAt>.25)return;
+  if(!keepSrc&&at-lastAt<2)return;
+  try{
+    const s=actx.createBufferSource();s.buffer=keepBuffer();
+    s.connect(actx.destination);
+    s.start(Math.max(actx.currentTime,at-.09));
+    s.stop(at+.02);
+  }catch(e){}
+}
+const mark=(at,dur)=>{lastAt=Math.max(lastAt,at+(dur||0))};
+/* ---------- a pulse that survives the background ----------
+   A backgrounded tab has its timers throttled, in a phone browser to about once
+   a minute, so cues that should have landed on the half-minute arrive in a heap
+   when you come back. The audio thread is not throttled: a buffer source of a
+   known length ends when it ends, whatever the page is doing, so while the page
+   is out of sight its endings are what drive the clock. In front, the ordinary
+   timer is more accurate and this stays out of the way. */
+let beatSrc=null;
+const anyLive=()=>runs.some(r=>r.w&&!r.done&&!r.pausedAt&&!isWaiting(r));
+/* ---------- the clock's own pulse ----------
+   Ten times a second while something is actually running — that is what puts a
+   beep on the right tenth of a second — and once a second when nothing is, so
+   the app sitting open on the dashboard no longer costs what one mid-workout
+   does. Anything that changes what is running asks for a look straight away
+   rather than waiting out the slow cadence: a subroutine takes its parent's
+   pause from the next tick, and a second of that is a second too many. */
+let pumpT=0;
+function pump(){
+  clearTimeout(pumpT);
+  tickRuns();
+  pumpT=setTimeout(pump,anyLive()?100:1000);
+}
+const kickPump=()=>{clearTimeout(pumpT);pumpT=setTimeout(pump,0)};
+function heartbeat(){
+  if(beatSrc){try{beatSrc.onended=null;beatSrc.stop()}catch(e){}beatSrc=null}
+  if(!document.hidden||!anyLive())return;
+  const c=ensureAudio();if(!c)return;
+  try{
+    const s=c.createBufferSource();
+    s.buffer=c.createBuffer(1,Math.max(1,Math.round(c.sampleRate*.25)),c.sampleRate);
+    s.connect(c.destination);
+    s.onended=()=>{if(beatSrc!==s)return;beatSrc=null;tickRuns();heartbeat()};
+    s.start();beatSrc=s;
+  }catch(e){}
+}
 function tone({f=880,type='sine',t0=0,dur=.3,vol=.3,attack=.005,f2=null}){
-  const t=actx.currentTime+t0,o=actx.createOscillator(),g=actx.createGain();
+  const t=actx.currentTime+t0;prime(t);mark(t,dur);
+  const o=actx.createOscillator(),g=actx.createGain();
   o.type=type;o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+dur);
   g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+attack);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
   o.connect(g).connect(master);o.start(t);o.stop(t+dur+.05);return o;
@@ -1374,7 +1575,8 @@ function noiseBuffer(){
   return noiseBuf;
 }
 function noise(t0,dur,vol,freq){
-  const t=actx.currentTime+t0,s=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();
+  const t=actx.currentTime+t0;prime(t);mark(t,dur);
+  const s=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();
   s.buffer=noiseBuffer();f.type='bandpass';f.frequency.value=freq;f.Q.value=.8;
   g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
   s.connect(f).connect(g).connect(master);s.start(t,0,Math.min(dur,1));
@@ -1416,6 +1618,8 @@ const SOUNDS={
 };
 function speak(text,flush){
   if(!('speechSynthesis' in window)||!text)return;
+  // Speech cannot be handed to the audio clock, so the path is opened just before it.
+  if(ensureAudio()){prime(actx.currentTime+.1);mark(actx.currentTime,1)}
   if(flush)speechSynthesis.cancel();
   const u=new SpeechSynthesisUtterance(text);u.rate=1.05;u.volume=Math.min(1,S.settings.volume/.8);
   speechSynthesis.speak(u);
@@ -1496,6 +1700,7 @@ const trackBuffer=a=>a?.kind==='synth'?synthBuffer(a.p):audioBuffer(a?.key);
 function playBuffer(buf,offset=0,loop=false){
   const c=ensureAudio();if(!c||!buf)return null;
   if(!loop&&offset>=buf.duration)return null;
+  prime(c.currentTime);mark(c.currentTime,Math.min(buf.duration,5));
   const s=c.createBufferSource();s.buffer=buf;s.loop=loop;s.connect(master);
   s.start(0,loop?offset%buf.duration:Math.max(0,offset));
   const h={onended:null,stop(){s.onended=null;try{s.stop()}catch(e){}}};
@@ -2059,17 +2264,41 @@ function synthSheet(init,onUse,title='Make a sound'){
 
 /* ================= Dashboard ================= */
 function renderDash(){renderCards();renderRunsStrip();setDrawer($('#drawer').dataset.snap,false);renderMainChart()}
+function renderCrumbs(){
+  const bar=$('#crumbs'),at=atNow(),path=trail(at);
+  bar.classList.toggle('hidden',!at);
+  if(!at){bar.innerHTML='';return}
+  bar.innerHTML=`<button class="crumb" data-at="">${ui('home','icon xs')}All</button>`+
+    path.map((f,i)=>`${ui('right','icon xs mu')}<button class="crumb ${i===path.length-1?'on':''}" data-at="${esc(f.id)}">${esc(f.name)}</button>`).join('');
+}
+function folderCard(f){
+  const n=below(f.id),bits=[n.w.length?plural(n.w.length,'routine'):'',n.f.length?plural(n.f.length,'folder'):''].filter(Boolean);
+  return `<article class="wcard fcard" style="--c:${esc(f.color)};--c2:${esc(f.color)}" data-folder="${esc(f.id)}">
+    <button class="grip" aria-label="Reorder ${esc(f.name)}"></button>
+    <button class="fopen" data-into="${esc(f.id)}" aria-label="Open ${esc(f.name)}">
+      ${ui('folder','icon fic')}
+      <span class="fmeta"><b>${esc(f.name)}</b><small>${bits.join(' \u00b7 ')||'Empty'}</small></span>
+      ${ui('right','icon mu')}
+    </button>
+    <button class="editbtn fmore" data-fmenu="${esc(f.id)}" aria-label="${esc(f.name)} options">${ui('more')}</button>
+  </article>`;
+}
 function renderCards(){
-  const box=$('#cards'),fab=$('#dashFab');
+  const box=$('#cards'),fab=$('#dashFab'),at=atNow();
+  renderCrumbs();
+  const here=routinesIn(at),folders=foldersIn(at);
   $('#dashCount').textContent=S.workouts.length?plural(S.workouts.length,'routine'):'';
-  if(!S.workouts.length){
+  if(!S.workouts.length&&!S.folders.length){
     box.innerHTML=`<button class="newcard" id="newCard">${ui('plus')}<b>Create new routine</b><span>Build a sequence of timed intervals</span></button>
       <button class="chip sample" id="sample">Load sample data</button>`;
     fab.classList.add('hidden');
     $('#newCard').onclick=()=>openEditor(null,'dash');
     $('#sample').onclick=loadSample;
+  }else if(!here.length&&!folders.length){
+    box.innerHTML=`<div class="hint fempty"><b>This folder is empty</b>Use the + button to put a routine or another folder in it, or move one here from its own menu.</div>`;
+    fab.classList.remove('hidden');
   }else{
-    box.innerHTML=S.workouts.map(w=>{
+    box.innerHTML=folders.map(folderCard).join('')+here.map(w=>{
       const t=total(w),mine=runs.filter(r=>r.wid===w.id&&!r.done);
       const live=mine.find(isLive),next=mine.filter(isWaiting).sort((a,b)=>anchorOf(a)-anchorOf(b))[0];
       const sub=live?(heldRun(live)?'Waiting for you':live.pausedAt?'Paused':'In progress'):next?`${ui('clock','icon xs')}${esc(whenLabel(anchorOf(next)))}`:plural(w.intervals.length,'interval');
@@ -2093,9 +2322,147 @@ function renderCards(){
   }
   fab.dataset.side=S.ui.dashFab;
 }
+/* Moving between folders is a step you can take back, so the system back gesture
+   walks up the hierarchy before it leaves the app. */
+function goFolder(id){
+  const was=atNow();
+  S.ui.at=id&&folderOf(id)?id:null;
+  save();
+  if(S.ui.at&&!was)navOpen('folder',()=>goFolder(null));
+  else if(!S.ui.at&&was)navDone('folder');
+  renderCards();renderMainChart();
+  $('#cards').scrollTop=0;
+}
 function playFromCard(wid){
   const act=runs.find(r=>r.wid===wid&&isLive(r));
   if(act)openRunner(act.id);else startNow(wid);
+}
+
+/* ---------- Folder housekeeping ---------- */
+function addSheet(){
+  openSheet(`<h4>Add</h4><div class="menu">
+    <button data-v="routine">${ui('plus')}New routine</button>
+    <button data-v="folder">${ui('folder')}New folder</button>
+  </div>`,v=>{
+    if(v==='routine')openEditor(null,'dash');
+    else if(v==='folder')setTimeout(newFolder,0);
+  });
+}
+function newFolder(){
+  const f={id:uid(),name:'New folder',color:PALETTE[S.folders.length%PALETTE.length],parent:atNow()};
+  S.folders.push(f);save();renderCards();
+  nameSheet(f,true);
+}
+function nameSheet(f,isNew){
+  openSheet(`<h4>${isNew?'Name this folder':'Rename folder'}</h4>
+    <input class="namein big" id="fName" value="${esc(f.name)}" maxlength="40" aria-label="Folder name" enterkeyhint="done">
+    <div class="dialfoot">${isNew?'<button class="btn" data-v="scrap">Discard</button>':''}<button class="btn pri" data-v="ok">Done</button></div>`,
+  v=>{
+    if(v==='scrap'){S.folders=S.folders.filter(x=>x!==f);save();renderCards();return}
+    f.name=($('#fName')?.value||'').trim()||f.name;save();renderCards();
+  },{onClose:()=>{const i=$('#fName');if(i)f.name=(i.value||'').trim()||f.name;save();renderCards()}});
+  setTimeout(()=>{const i=$('#fName');if(i){i.focus();i.select()}},60);
+}
+/* Anywhere that is not inside the thing being moved. */
+function moveSheet(kind,item){
+  const banned=kind==='folder'?new Set([item.id,...below(item.id).f.map(f=>f.id)]):new Set();
+  const label=f=>trail(f.id).map(x=>x.name).join(' / ');
+  const here=kind==='folder'?(item.parent||null):(item.folder||null);
+  const opts=S.folders.filter(f=>!banned.has(f.id)).sort((a,b)=>label(a).localeCompare(label(b)));
+  openSheet(`<h4>Move ${esc(kind==='folder'?item.name:item.name)}</h4>
+    <p class="small">Pick where it should live.</p>
+    <div class="menu">
+      <button data-v="" class="${here?'':'on'}">${ui('home')}All routines${here?'':'<span class="val">Here now</span>'}</button>
+      ${opts.map(f=>`<button data-v="${esc(f.id)}" class="${here===f.id?'on':''}">${ui('folder')}<span class="sl">${esc(label(f))}</span>${here===f.id?'<span class="val">Here now</span>':''}</button>`).join('')}
+    </div>
+    ${opts.length?'':'<p class="small">There are no folders yet. Make one from the + button.</p>'}`,
+  v=>{
+    const to=v||null;
+    if(kind==='folder'){
+      if(folderLoops(item.id,to))return toast('A folder cannot go inside itself');
+      item.parent=to;
+    }else item.folder=to;
+    save();renderCards();
+    toast(to?`Moved to ${folderName(folderOf(to))}`:'Moved to the top level');
+  });
+}
+function folderMenu(f){
+  const n=below(f.id);
+  openSheet(`<h4>${esc(f.name)}</h4>
+    <p class="small">${[n.w.length?plural(n.w.length,'routine'):'',n.f.length?plural(n.f.length,'folder'):''].filter(Boolean).join(' \u00b7 ')||'Empty'}</p>
+    <div class="menu">
+      <button data-v="open">${ui('right')}Open</button>
+      <button data-v="rename">${ui('edit')}Rename</button>
+      <button data-v="move">${ui('move')}Move\u2026</button>
+      <button data-v="color">${ui('flag')}Colour</button>
+      <button data-v="del" class="red">${ui('trash')}Delete folder</button>
+    </div>`,v=>{
+    if(v==='open')goFolder(f.id);
+    else if(v==='rename')setTimeout(()=>nameSheet(f,false),0);
+    else if(v==='move')setTimeout(()=>moveSheet('folder',f),0);
+    else if(v==='color')setTimeout(()=>folderColourSheet(f),0);
+    else if(v==='del')setTimeout(()=>deleteFolderSheet(f),0);
+  });
+}
+function folderColourSheet(f){
+  openSheet(`<h4>Folder colour</h4>
+    <div class="swatches">${PALETTE.map(c=>`<button class="cswatch ${f.color===c?'on':''}" data-v="${c}" style="--sw:${c}" aria-label="${c}"></button>`).join('')}</div>`,
+  v=>{if(v){f.color=v;save();renderCards()}});
+}
+function deleteFolderSheet(f){
+  const n=below(f.id),up=folderOf(f.parent);
+  const where=up?`into ${esc(up.name)}`:'to the top level';
+  if(!n.w.length&&!n.f.length){
+    return confirmSheet(`Delete \u201c${esc(f.name)}\u201d?`,'The folder is empty.','Delete',()=>{
+      S.folders=S.folders.filter(x=>x!==f);
+      if(atNow()===f.id)goFolder(f.parent||null);else{save();renderCards()}
+      toast('Folder deleted');
+    });
+  }
+  openSheet(`<h4>Delete \u201c${esc(f.name)}\u201d?</h4>
+    <p>It holds ${[n.w.length?plural(n.w.length,'routine'):'',n.f.length?plural(n.f.length,'folder'):''].filter(Boolean).join(' and ')}.</p>
+    <div class="menu">
+      <button data-v="keep">${ui('move')}<span class="sl">Delete the folder only<small>Everything in it moves ${where}</small></span></button>
+      <button data-v="all" class="red">${ui('trash')}<span class="sl">Delete it and everything in it<small>Past training stays in your history</small></span></button>
+    </div>
+    <div class="dialfoot"><button class="btn" data-v="no">Cancel</button></div>`,v=>{
+    if(v==='keep'){
+      for(const x of foldersIn(f.id))x.parent=f.parent||null;
+      for(const w of routinesIn(f.id))w.folder=f.parent||null;
+      S.folders=S.folders.filter(x=>x!==f);
+      if(atNow()===f.id)goFolder(f.parent||null);else{save();renderCards()}
+      toast('Folder deleted, contents kept');
+    }else if(v==='all'){
+      const ids=n.w.map(w=>w.id);
+      S.folders=S.folders.filter(x=>x!==f&&!n.f.includes(x));
+      if(ids.length)deleteWorkouts(ids);
+      if(atNow()===f.id||n.f.some(x=>x.id===atNow()))goFolder(f.parent||null);else{save();renderCards()}
+      toast(`Deleted ${plural(ids.length,'routine')}`);
+    }
+  });
+}
+
+function routineMenu(w){
+  const fin=w.folder?trail(w.folder).map(x=>x.name).join(' / '):'All routines';
+  openSheet(`<h4>${esc(w.name)}</h4><div class="menu">
+    <button data-v="move">${ui('move')}<span class="sl">Move to a folder\u2026</span><span class="val">${esc(fin)}</span></button>
+    <button data-v="dup">${ui('copy')}Duplicate</button>
+    <button data-v="edit">${ui('edit')}Edit</button>
+    <button data-v="del" class="red">${ui('trash')}Delete routine</button>
+  </div>`,v=>{
+    if(v==='move')setTimeout(()=>moveSheet('routine',w),0);
+    else if(v==='dup'){
+      const copy=normRoutine({...structuredClone(w),id:uid(),name:w.name+' copy',created:Date.now()});
+      copy.intervals.forEach(it=>it.id=uid());
+      S.workouts.splice(S.workouts.indexOf(w)+1,0,copy);
+      save();renderDash();toast('Duplicated');
+    }
+    else if(v==='edit')openEditor(w.id,'detail');
+    else if(v==='del')setTimeout(()=>confirmSheet(`Delete \u201c${esc(w.name)}\u201d?`,
+      'The routine and its media are removed. Its past training moves to the archive in Settings.','Delete routine',()=>{
+        deleteWorkouts([w.id]);closeDetail();toast('Routine deleted');
+      },'Keep it'),0);
+  });
 }
 
 /* ---------- Chart drawer: tucked at the bottom, pulls up over everything ---------- */
@@ -2406,16 +2773,22 @@ function drawChart(o){
   })();
   const panStep=Math.max(8,(W-38)/N);
   el.style.touchAction='pan-y';
+  /* Nothing is taken from the pointer until a drag has actually started. Calling
+     preventDefault on the way down, or capturing there, costs a mouse its click
+     — which is why a bar could be tapped on a phone but not on a desktop. */
   el.onpointerdown=e=>{
     if(e.button>0||!maxOff)return;
-    if(e.pointerType==='mouse')e.preventDefault();
     el._pan={x:e.clientX,base:skip,moved:false,pid:e.pointerId};
-    try{el.setPointerCapture(e.pointerId)}catch(_){}
   };
   el.onpointermove=e=>{
     const p=el._pan;if(!p||e.pointerId!==p.pid)return;
     const dx=e.clientX-p.x;   // the chart follows your finger: drag right to go back in time
-    if(!p.moved){if(Math.abs(dx)<8)return;p.moved=true}
+    if(!p.moved){
+      if(Math.abs(dx)<8)return;
+      p.moved=true;
+      try{el.setPointerCapture(e.pointerId)}catch(_){}
+    }
+    e.preventDefault();
     const next=Math.max(0,Math.min(maxOff,p.base+Math.round(dx/panStep)));
     if(next!==skip)o.onPan?.(next);
   };
@@ -2542,7 +2915,8 @@ function renderDetail(){
   $('#dName').textContent=w.name;
   const tr=transTotal(w);
   $('#dStats').innerHTML=`<span class="wdur num">${t}<small>s</small></span><span class="wsub num">${fmt(t)} total<br>${plural(w.intervals.length,'interval')}${tr?` · ${fmtS(tr)} in transitions`:''}</span>`;
-  $('#dCues').textContent=`${w.nolog?'Not added to your chart · ':''}Start: ${cueLabel(wCue(w,'start'))} · End: ${cueLabel(wCue(w,'end'))} · Finish: ${cueLabel(wCue(w,'done'))}${countdownOn(w)?` · ${countdownOf(w)}s countdown`:''}${transOf(w)?` · ${fmtS(transOf(w))} between intervals`:''}`;
+  const fin=w.folder?trail(w.folder).map(x=>x.name).join(' / '):'';
+  $('#dCues').textContent=`${fin?`In ${fin} · `:''}${w.nolog?'Not added to your chart · ':''}Start: ${cueLabel(wCue(w,'start'))} · End: ${cueLabel(wCue(w,'end'))} · Finish: ${cueLabel(wCue(w,'done'))}${countdownOn(w)?` · ${countdownOf(w)}s countdown`:''}${transOf(w)?` · ${fmtS(transOf(w))} between intervals`:''}`;
   $('#dRail').innerHTML=railHTML(w);markOverflow($('#dRail'));
   $('#dRows').innerHTML=w.intervals.length?timeline(w).segs.map(sg=>{
     if(sg.kind==='tr')return `<div class="dtr">${ui('gap','icon xs')}${fmtS(sg.dur/1000)} ${sg.k===0?'to get ready':sg.k>=w.intervals.length?'cool-off':'transition'}</div>`;
@@ -2944,7 +3318,6 @@ function calloutSheet(scope,w,it,after){
     else S.settings.callouts=co||{mode:'off'};
     save();
     if(scope!=='global'&&E)renderEditor();
-    after?.();
   };
   const body=()=>{
     const co=get(),eff=co||inherited||DEF_CALLOUT,mode=co?co.mode:'def';
@@ -2960,7 +3333,11 @@ function calloutSheet(scope,w,it,after){
       <div class="dialfoot"><button class="btn" data-keep="try">Preview</button><button class="btn pri" data-v="done">Done</button></div>`;
   };
   const refresh=()=>{if($('#sheet').classList.contains('open'))$('#sheetBody').innerHTML=body()};
-  openSheet(body(),null,{onKeep:(v,el)=>{
+  /* `after` is what happens once this sheet is finished with — reopening the menu
+     it came from, or redrawing Settings. It runs on close, not on every change:
+     running it per change is what made the sheet appear to dismiss itself the
+     moment you touched anything. */
+  openSheet(body(),null,{onClose:after,onKeep:(v,el)=>{
     const co=get(),eff=co||inherited||DEF_CALLOUT;
     if(v==='cm:def')set(null);
     else if(v==='cm:off')set({mode:'off'});
@@ -3141,7 +3518,7 @@ let E=null,preview=null;
 
 function openEditor(id,from){
   const src=id?S.workouts.find(w=>w.id===id):null;
-  const w=src?structuredClone(src):normRoutine({id:uid(),name:`Routine ${S.workouts.length+1}`,color:PALETTE[S.workouts.length%PALETTE.length],created:Date.now(),cues:{},intervals:[]});
+  const w=src?structuredClone(src):normRoutine({id:uid(),name:`Routine ${S.workouts.length+1}`,color:PALETTE[S.workouts.length%PALETTE.length],created:Date.now(),cues:{},intervals:[],folder:from==='dash'?atNow():null});
   E={w,isNew:!src,from:from||'dash',trash:[],orig:src?JSON.stringify(src):''};
   $('#eName').value=w.name;
   $('#editFab').dataset.side=S.ui.editFab;
@@ -4090,6 +4467,8 @@ function nextOccurrence(at,repeat){
 }
 function persistRuns(){
   S.runs=runs.filter(r=>!isKid(r)).map(r=>{const o={};for(const k of RUN_FIELDS)if(r[k]!=null)o[k]=r[k];return o});
+  keepAwake(runs.some(r=>!r.done));
+  heartbeat();kickPump();
   lastSave=Date.now();save();
 }
 function makeRun(wid,plan=null){
@@ -4485,7 +4864,7 @@ function setPaused(r,p){
     r.anchor+=now-r.pausedAt;r.pausedAt=null;r.tick=now;restartTrack(r);
   }
   persistRuns();
-  if(r.id===focusId&&runVisible())renderRunner();
+  if(r.id===focusId&&runVisible()){renderRunner();pauseRing(r.pausedAt!=null)}
   syncVideo(r,true);
   updateRunsUI(true);
 }
@@ -4765,14 +5144,24 @@ function openRunner(id){
   showUpdateBar();
   navOpen('run',()=>{closeRunner();refreshScreen()});
   renderRunner();
-  cancelAnimationFrame(RE.raf);
-  const loop=()=>{if(!runVisible())return;drawRunner();RE.raf=requestAnimationFrame(loop)};
-  loop();updateRunsUI(true);
+  beat();updateRunsUI(true);
 }
+/* ---------- the display beat ----------
+   The numbers on screen change once a second, so they are drawn once a second,
+   on the second, and only while you are looking at them. The ring is a CSS
+   animation and needs nothing from here; a frame loop was drawing both sixty
+   times a second, and carried on doing it with the tab in the background. */
+function beat(){
+  stopBeat();
+  if(!runVisible()||document.hidden)return;
+  drawRunner();
+  RE.beat=setTimeout(beat,1000-(Date.now()%1000)+8);
+}
+function stopBeat(){if(RE.beat)clearTimeout(RE.beat);RE.beat=0;cancelAnimationFrame(RE.raf);RE.raf=0}
 function closeRunner(){
   navDone('run');
   $('#run').classList.add('hidden');
-  showUpdateBar();cancelAnimationFrame(RE.raf);RE.seeking=false;
+  showUpdateBar();stopBeat();RE.seeking=false;
   $$('#rMedia video').forEach(v=>v.pause());
   updateRunsUI(true);
 }
@@ -4842,6 +5231,30 @@ function showLogPick(r){
     refreshScreen();haptic(10);
   };
 }
+/* ---------- the ring ----------
+   Set once per interval. A negative delay starts it already at the right angle,
+   which is how a resumed run, or one coming back after a reload, lands in place
+   without a frame of catching up. */
+function setRing(seg,el,paused){
+  const w=RE.arc||(RE.arc=$('#rSweep'));if(!w)return;
+  clearTimeout(RE.sL);clearTimeout(RE.sR);
+  if(!seg||!seg.dur){w.classList.add('off');return}
+  w.classList.remove('off');
+  const half=seg.dur/2,e=Math.max(0,Math.min(el,seg.dur));
+  w.style.setProperty('--half',half+'ms');
+  w.style.setProperty('--dL',`${-e}ms`);          // the left half empties first
+  w.style.setProperty('--dR',`${half-e}ms`);      // the right half waits its turn
+  const L=$('.rmask.l',w),R=$('.rmask.r',w);
+  const spend=(elm,left)=>{
+    elm.classList.toggle('spent',left<=0);
+    // While paused nothing is going anywhere, so nothing is scheduled either.
+    return (left>0&&!paused)?setTimeout(()=>elm.classList.add('spent'),left):0;
+  };
+  RE.sL=spend(L,half-e);
+  RE.sR=spend(R,seg.dur-e);
+  pauseRing(paused);
+}
+function pauseRing(on){const w=RE.arc||(RE.arc=$('#rSweep'));if(w)w.style.setProperty('--play',on?'paused':'running')}
 function showInterval(r){
   const w=workoutOf(r),box=$('#rMedia'),run=$('#run');
   RE.shown={};RE.mtok=null;
@@ -4857,6 +5270,7 @@ function showInterval(r){
     showLogPick(r);
     $('#rRail').innerHTML=railHTML(w,wait?null:w.intervals.length);markOverflow($('#rRail'));
     box.replaceChildren();RE.mkey='';RE.vdur=0;run.classList.add('nomedia');railGeo();
+    setRing(null,0,false);
     return;
   }
   const p=posAt(w,elapsedOf(r)),seg=p.seg,tr=seg.kind==='tr',it=w.intervals[p.idx];
@@ -4898,6 +5312,7 @@ function showInterval(r){
       });
     }
   }else syncVideo(r,true);
+  setRing(seg,p.el,r.pausedAt!=null);
 }
 /* Video follows the interval's clock. When the clip is shorter than the interval it
    loops, so the right frame is elapsed modulo the clip's length. */
@@ -4933,7 +5348,6 @@ function drawRunner(force){
     if(RE.si!==-1)return renderRunner();
     setT(RE.time,'Done','t');RE.time.classList.remove('long');
     setT(RE.left,`${fmt(r.active/1000)} trained`,'l');
-    setS(RE.arc,'strokeDashoffset','0','a');
     if(RE.fill)setS(RE.fill,'transform','scaleX(1)','f');
     return;
   }
@@ -4943,7 +5357,6 @@ function drawRunner(force){
     const tt=untilLabel(-el);
     setT(RE.time,tt,'t');RE.time.classList.toggle('long',tt.length>5);
     setT(RE.left,`${fmt(T/1000)} routine${RE.tight?'':` · ends ${clockTime(anchorOf(r)+T)}`}`,'l');
-    setS(RE.arc,'strokeDashoffset','565.49','a');
     return;
   }
   if(RE.si<0)return renderRunner();
@@ -4951,6 +5364,9 @@ function drawRunner(force){
   if(p.done)return;
   if(p.si!==RE.si){showInterval(r);RE.shown={}}
   const d=p.seg.dur;
+  // A jump inside the interval it is already showing leaves the segment the same,
+  // so the sweep has to be re-armed explicitly: force is exactly "something moved".
+  if(force&&!RE.seeking)setRing(p.seg,p.el,r.pausedAt!=null);
   const shownEl=RE.seeking?Math.min(d,+RE.range.value*1000):p.el;
   const rem=Math.max(0,d-shownEl);
   const tt=fmt(Math.ceil(rem/1000));
@@ -4960,10 +5376,9 @@ function drawRunner(force){
   const tail=isKid(r)?` · in ${workoutOf(parentOf(r))?.name||'a routine'}`
     :RE.tight?'':` · ends ${clockTime(now+T-el)}`;
   setT(RE.left,`${fmt(Math.ceil((T-el)/1000))} left${tail}${scaleLabel(r)}`,'l');
-  setS(RE.arc,'strokeDashoffset',(565.49*(1-rem/d)).toFixed(1),'a');
   if(!RE.seeking){const v=(p.el/1000).toFixed(1);if(RE.shown.rv!==v){RE.shown.rv=v;RE.range.value=v}}
   setT(RE.el,fmt(Math.floor(shownEl/1000)),'e');
-  if(now-(RE.vsync||0)>2000){RE.vsync=now;syncVideo(r,false)}
+  if(now-(RE.vsync||0)>1500){RE.vsync=now;syncVideo(r,false)}
   setT(RE.rem,'−'+fmt(Math.ceil(rem/1000)),'m');
   if(RE.geo&&RE.fill){
     const px=Math.max(0,RE.geo.x+RE.geo.w*Math.min(1,shownEl/d)-10);
@@ -5084,17 +5499,19 @@ function bindRun(){
     if(s&&r&&isLive(r))seekSeg(r,segOfInterval(r.w,+s.dataset.j),0,true);
   };
   const rg=RE.range;
-  rg.addEventListener('input',()=>{RE.seeking=true;drawRunner()});
+  rg.addEventListener('input',()=>{RE.seeking=true;pauseRing(true);drawRunner()});
   rg.addEventListener('change',()=>{
     const r=focusRun();RE.seeking=false;
     if(r&&RE.si>=0)seekSeg(r,RE.si,+rg.value*1000,false);
+    else drawRunner(true);
   });
-  rg.addEventListener('blur',()=>{RE.seeking=false});
+  rg.addEventListener('blur',()=>{RE.seeking=false;drawRunner(true)});
   $('#miniRun').onclick=()=>{const r=pillRun();if(r)openRunner(r.id)};
   document.addEventListener('visibilitychange',()=>{
-    if(document.hidden)return;
-    ensureAudio();wakeLock=null;tickRuns();
+    if(document.hidden){stopBeat();heartbeat();return}
+    ensureAudio();wakeLock=null;tickRuns();heartbeat();
     if(runs.some(r=>r.w&&!r.done))requestWake();
+    if(runVisible()){renderRunner();beat()}
   });
   let rz=0;
   addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{if(runVisible()){markOverflow($('#rRail'));railGeo();drawRunner(true)}},120)});
@@ -5181,7 +5598,7 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const APP_BUILD='2026.09.22';
+const APP_BUILD='5.1 (2026.09.30)';
 const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
@@ -5441,15 +5858,39 @@ function bind(){
   $('#dashFab').innerHTML=ui('plus');$('#editFab').innerHTML=ui('plus');
   $('#eBack').innerHTML=ui('back');$('#eDel').innerHTML=ui('trash');
   $('#dBack').innerHTML=ui('back');$('#dEdit').innerHTML=ui('edit');$('#dTime').innerHTML=ui('clock');
+  $('#dMore').innerHTML=ui('more');
+  $('#dMore').onclick=()=>{const w=S.workouts.find(x=>x.id===detailId);if(w)routineMenu(w)};
   $('#sBack').innerHTML=ui('back');$('#setBtn').innerHTML=ui('gear');$('#dAgain').innerHTML=ui('playplus','icon fill');
   $('#eWatch').innerHTML=ui('watch','icon sm');
-  sideDraggable($('#dashFab'),$('#dashTop'),'dashFab',()=>openEditor(null,'dash'));
+  sideDraggable($('#dashFab'),$('#dashTop'),'dashFab',addSheet);
+  /* Folders are drawn above the routines, so a drop is kept on its own side of
+     that line: dragging a routine up among the folders would otherwise appear to
+     work and then snap back on the next render. Only the slots this folder
+     already occupies are rewritten, so the order of everything elsewhere is
+     left alone. */
   sortable('#cards','.wcard',(from,to)=>{
-    const [w]=S.workouts.splice(from,1);S.workouts.splice(to,0,w);
+    const at=atNow(),fs=foldersIn(at),ws=routinesIn(at),n=fs.length;
+    const reorder=(arr,order)=>{
+      const slots=[];arr.forEach((x,i)=>{if(order.includes(x))slots.push(i)});
+      slots.forEach((slot,i)=>{arr[slot]=order[i]});
+    };
+    if(from<n){
+      const t=Math.min(to,n-1),a=fs.slice();a.splice(t,0,...a.splice(from,1));
+      reorder(S.folders,a);
+    }else{
+      const f=from-n,t=Math.max(0,to-n),a=ws.slice();a.splice(t,0,...a.splice(f,1));
+      reorder(S.workouts,a);
+    }
     save();renderCards();renderMainChart();
+  });
+  $('#crumbs').addEventListener('click',e=>{
+    const c=e.target.closest('[data-at]');if(c)goFolder(c.dataset.at||null);
   });
   $('#cards').addEventListener('click',e=>{
     if(justSorted($('#cards')))return;
+    const into=e.target.closest('[data-into]');if(into)return goFolder(into.dataset.into);
+    const fm=e.target.closest('[data-fmenu]');
+    if(fm){const f=folderOf(fm.dataset.fmenu);if(f)folderMenu(f);return}
     const ed=e.target.closest('[data-edit]');if(ed)return openEditor(ed.dataset.edit,'dash');
     const ag=e.target.closest('[data-again]');if(ag)return startNow(ag.dataset.again);
     const pl=e.target.closest('[data-play]');if(pl)return playFromCard(pl.dataset.play);
@@ -5486,7 +5927,7 @@ async function sweepOrphans(){
   setDrawer(S.ui.drawer,false);
   show('dash');renderDash();
   tickRuns();
-  setInterval(tickRuns,100);
+  pump();heartbeat();
   setTimeout(sweepOrphans,5000);
   if(!Store.durable)setTimeout(()=>toast('This browser is limiting storage, so changes may not be kept'),800);
 })();
