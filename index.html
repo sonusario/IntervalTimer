@@ -273,6 +273,11 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 .crumb.on{color:var(--tx);background:var(--s1)}
 .crumbs .icon.xs{width:14px;height:14px;flex:none}
 .wcard.fcard{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"open more";padding:4px 6px 4px 18px;align-items:center}
+/* A card being dragged must not intercept the pointer, or nothing underneath it
+   can be found as a place to drop it. */
+.wcard.lift{pointer-events:none}
+.wcard.dropin{outline:2px solid var(--c);outline-offset:-2px;background:color-mix(in srgb,var(--c) 14%,var(--s1))}
+.wcard.dropin .fic{scale:1.12}
 .fopen{grid-area:open;display:flex;align-items:center;gap:12px;min-width:0;width:100%;padding:12px 2px;text-align:left}
 .fopen .fic{width:26px;height:26px;flex:none;color:var(--c)}
 .fmeta{display:flex;flex-direction:column;min-width:0;flex:1}
@@ -280,6 +285,17 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 .fmeta small{color:var(--mu);font-size:13px}
 .fopen .icon.mu{width:18px;height:18px;flex:none;color:var(--mu)}
 .fmore{grid-area:more;position:static}
+.recents{flex:none;display:flex;align-items:center;gap:8px;padding:0 14px 8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.recents::-webkit-scrollbar{display:none}
+.recents.hidden{display:none}
+.rclab{flex:none;display:inline-flex;align-items:center;gap:4px;color:var(--mu);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.rchip{flex:none;display:inline-flex;align-items:center;gap:6px;max-width:46vw;padding:6px 11px;border-radius:999px;background:var(--s1);font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rchip:active{background:var(--s2)}
+.rchip i{flex:none;width:7px;height:7px;border-radius:50%;background:var(--c)}
+.rchip.on{box-shadow:inset 0 0 0 1.5px var(--c)}
+.wacts{grid-area:edit;display:flex;align-items:center;gap:2px}
+.editbtn.sm{width:34px;height:34px}
+.editbtn.sm .icon{width:20px;height:20px}
 .fempty{margin-top:4px}
 .fempty b{display:block;margin-bottom:6px;color:var(--tx);font-family:var(--disp);font-size:17px}
 .hint b{display:block;color:var(--tx);font-size:18px;margin-bottom:4px}
@@ -426,10 +442,9 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 .rmask{position:absolute;top:0;bottom:0;width:50%;overflow:hidden}
 .rmask.r{right:0}
 .rmask.l{left:0}
-.rspin{position:absolute;top:0;bottom:0;width:200%;
-  animation:drain var(--half,500ms) linear both;animation-play-state:var(--play,running)}
-.rmask.r .rspin{left:-100%;animation-delay:var(--dR,0ms)}
-.rmask.l .rspin{left:0;animation-delay:var(--dL,0ms)}
+.rspin{position:absolute;top:0;bottom:0;width:200%;animation:drain var(--half,500ms) linear both}
+.rmask.r .rspin{left:-100%;animation-delay:var(--half,500ms)}
+.rmask.l .rspin{left:0;animation-delay:0ms}
 /* A half-ring parked against the dividing line still shows its rounded end just
    across it — a dot at six o'clock through the second half of an interval, and
    one at twelve once it has run out. The wedge is taken out of the picture when
@@ -862,11 +877,13 @@ body.watching #sheet{z-index:70}
     <div class="topbar">
       <div class="brand"><svg aria-hidden="true" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#1A1D2E"/><g fill="none" stroke-width="7" stroke-linecap="round"><path d="M37.18 12.68A20 20 0 0 1 51.32 26.82" stroke="#FFD23F"/><path d="M51.32 37.18A20 20 0 0 1 37.18 51.32" stroke="#4DD9A6"/><path d="M26.82 51.32A20 20 0 0 1 12.68 37.18" stroke="#5AA9FF"/><path d="M12.68 26.82A20 20 0 0 1 26.82 12.68" stroke="#FF7A59"/></g><path d="M27.5 23.5v17l13.5-8.5z" fill="#F2F0EA" stroke="#F2F0EA" stroke-width="3" stroke-linejoin="round"/></svg>Interval</div>
       <div class="count" id="dashCount"></div>
+      <button class="iconbtn" id="newFolderBtn" aria-label="New folder"></button>
       <button class="iconbtn" id="setBtn" aria-label="Settings"></button>
     </div>
     <button class="updbar hidden" id="updBar" aria-label="Reload to use the new version"></button>
     <div class="runs" id="runs" aria-label="Running and upcoming routines"></div>
     <nav class="crumbs hidden" id="crumbs" aria-label="Folders"></nav>
+    <div class="recents hidden" id="recents" aria-label="Recent routines"></div>
     <div class="cards" id="cards"></div>
     <i class="dz l"></i><i class="dz r"></i>
     <button class="fab hidden" id="dashFab" aria-label="New routine (hold to move)"></button>
@@ -1139,6 +1156,7 @@ const UI={plus:'M12 5v14M5 12h14',edit:'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',back:'
   speak:'M4 5h16v11H10l-5 4v-4H4z',stop:'M6 6h12v12H6z',chev:'M6 9l6 6 6-6',
   flip:'M4 12a8 8 0 0 1 14-5.3L20 9M20 12a8 8 0 0 1-14 5.3L4 15M20 4v5h-5M4 20v-5h5',
   folder:'M3 7h6l2 2h10v10H3z', home:'M4 11l8-7 8 7M6 10v10h12V10',
+  folderPlus:'M3 7h6l2 2h10v10H3zM12 12v5M9.5 14.5h5',
   move:'M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3',
   crop:'M6 2v14h14M2 6h14v14',off:'M4 9h4l5-4v14l-5-4H4zM17 9l5 6M22 9l-5 6',
   clock:'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M12 7v5l3.5 2',
@@ -1799,9 +1817,9 @@ function railHTML(w,cur,tap){
 function markOverflow(root){$$('.rail',root).forEach(r=>r.classList.toggle('over',r.scrollWidth>r.clientWidth+1))}
 
 /* Bottom sheet. onPick: [data-v] (closes). opts.onKeep: [data-keep] (stays open). opts.onClose: cleanup. */
-let sheetT,sheetClose=null;
+let sheetT,sheetHideT=0,sheetGen=0,sheetClose=null;
 function openSheet(html,onPick,opts={}){
-  clearTimeout(sheetT);
+  clearTimeout(sheetT);clearTimeout(sheetHideT);sheetGen++;
   const prev=sheetClose;sheetClose=null;prev?.();
   const sh=$('#sheet'),box=$('.sheetin');
   $('#sheetBody').innerHTML=html;sh.classList.remove('hidden');
@@ -1815,15 +1833,32 @@ function openSheet(html,onPick,opts={}){
     const k=e.target.closest('[data-keep]');
     if(k){opts.onKeep?.(k.dataset.keep,k);return}
     const b=e.target.closest('[data-v]');
-    if(b&&!b.disabled){const v=b.dataset.v;const r=onPick?.(v,b,true);closeSheet();r?.then?.(()=>{})}
+    if(b&&!b.disabled){
+      const v=b.dataset.v,g=sheetGen;
+      const r=onPick?.(v,b,true);
+      // If handling that already put another sheet here — a cue handing back to
+      // the menu it came from — there is nothing to close.
+      if(sheetGen===g)closeSheet();
+      r?.then?.(()=>{});
+    }
   };
 }
+/* Closing is decided a tick late. A sheet that hands over to the one it came from
+   — Done on a sub-sheet, say — closes and opens in the same breath, and the panel
+   should stay where it is and swap its contents rather than dropping away and
+   sliding back up, which is what read as a flash. */
 function closeSheet(){
   navDone('sheet');
+  const gen=sheetGen;
   const f=sheetClose;sheetClose=null;f?.();
   const sh=$('#sheet'),box=$('.sheetin');
   box.classList.remove('dragging');box.style.transform='';sh.style.background='';
-  sh.classList.remove('open');sheetT=setTimeout(()=>sh.classList.add('hidden'),280);
+  clearTimeout(sheetHideT);
+  sheetHideT=setTimeout(()=>{
+    if(sheetGen!==gen)return;                  // something else has taken it over
+    sh.classList.remove('open');
+    sheetT=setTimeout(()=>{if(sheetGen===gen)sh.classList.add('hidden')},280);
+  },0);
 }
 function bindSheetDrag(){
   const sh=$('#sheet'),box=$('.sheetin'),grab=$('#sheetGrab');
@@ -2271,6 +2306,40 @@ function renderCrumbs(){
   bar.innerHTML=`<button class="crumb" data-at="">${ui('home','icon xs')}All</button>`+
     path.map((f,i)=>`${ui('right','icon xs mu')}<button class="crumb ${i===path.length-1?'on':''}" data-at="${esc(f.id)}">${esc(f.name)}</button>`).join('');
 }
+/* ---------- Recent routines ----------
+   The ones you have actually been running, newest first, so a routine filed
+   three folders deep is still one tap away. Sitting at the top level only: once
+   you are inside a folder, what is in that folder is the answer to the question
+   you just asked. */
+const RECENT_N=5, RECENT_DAYS=45;
+function recentRoutines(){
+  const cut=Date.now()-RECENT_DAYS*864e5,at={};
+  for(const e of S.history){
+    const t=e.at||Date.parse((e.date||'')+'T12:00:00')||0;
+    if(t>=cut&&(!at[e.workoutId]||t>at[e.workoutId]))at[e.workoutId]=t;
+  }
+  for(const r of runs){            // something running now is the most recent of all
+    const t=r.doneAt||Date.now();
+    if(!at[r.wid]||t>at[r.wid])at[r.wid]=t;
+  }
+  return Object.keys(at)
+    .map(id=>({w:S.workouts.find(x=>x.id===id),t:at[id]}))
+    .filter(x=>x.w&&total(x.w)>0)
+    .sort((a,b)=>b.t-a.t)
+    .slice(0,RECENT_N);
+}
+function renderRecents(){
+  const box=$('#recents'),at=atNow();
+  const list=at?[]:recentRoutines();
+  box.classList.toggle('hidden',!list.length);
+  if(!list.length){box.innerHTML='';return}
+  box.innerHTML=`<span class="rclab">${ui('clock','icon xs')}Recent</span>`+list.map(({w})=>{
+    const live=runs.some(r=>r.wid===w.id&&isLive(r));
+    const where=w.folder?trail(w.folder).map(x=>x.name).join(' / '):'';
+    return `<button class="rchip ${live?'on':''}" data-recent="${esc(w.id)}" style="--c:${esc(w.color)}"
+      aria-label="${esc(w.name)}${where?', in '+esc(where):''}"><i></i>${esc(w.name)}</button>`;
+  }).join('');
+}
 function folderCard(f){
   const n=below(f.id),bits=[n.w.length?plural(n.w.length,'routine'):'',n.f.length?plural(n.f.length,'folder'):''].filter(Boolean);
   return `<article class="wcard fcard" style="--c:${esc(f.color)};--c2:${esc(f.color)}" data-folder="${esc(f.id)}">
@@ -2285,7 +2354,7 @@ function folderCard(f){
 }
 function renderCards(){
   const box=$('#cards'),fab=$('#dashFab'),at=atNow();
-  renderCrumbs();
+  renderCrumbs();renderRecents();
   const here=routinesIn(at),folders=foldersIn(at);
   $('#dashCount').textContent=S.workouts.length?plural(S.workouts.length,'routine'):'';
   if(!S.workouts.length&&!S.folders.length){
@@ -2306,7 +2375,10 @@ function renderCards(){
       <article class="wcard ${live?'live':''} ${w.color2?'duo':''}" style="${themeVars(w)}" data-open="${w.id}">
         <button class="grip" aria-label="Reorder ${esc(w.name)}"></button>
         <h3>${esc(w.name)}</h3>
-        <button class="editbtn" data-edit="${w.id}" aria-label="Edit ${esc(w.name)}">${ui('edit')}</button>
+        <div class="wacts">
+          <button class="editbtn sm" data-wmenu="${w.id}" aria-label="${esc(w.name)} options">${ui('more')}</button>
+          <button class="editbtn" data-edit="${w.id}" aria-label="Edit ${esc(w.name)}">${ui('edit')}</button>
+        </div>
         <div class="wmeta">
           <span class="wdur num">${t}<small>s</small></span>
           <span class="wsub num">${fmt(t)}<br>${sub}</span>
@@ -2339,15 +2411,6 @@ function playFromCard(wid){
 }
 
 /* ---------- Folder housekeeping ---------- */
-function addSheet(){
-  openSheet(`<h4>Add</h4><div class="menu">
-    <button data-v="routine">${ui('plus')}New routine</button>
-    <button data-v="folder">${ui('folder')}New folder</button>
-  </div>`,v=>{
-    if(v==='routine')openEditor(null,'dash');
-    else if(v==='folder')setTimeout(newFolder,0);
-  });
-}
 function newFolder(){
   const f={id:uid(),name:'New folder',color:PALETTE[S.folders.length%PALETTE.length],parent:atNow()};
   S.folders.push(f);save();renderCards();
@@ -2383,6 +2446,7 @@ function moveSheet(kind,item){
       item.parent=to;
     }else item.folder=to;
     save();renderCards();
+    if(screen==='detail')renderDetail();
     toast(to?`Moved to ${folderName(folderOf(to))}`:'Moved to the top level');
   });
 }
@@ -2442,7 +2506,8 @@ function deleteFolderSheet(f){
   });
 }
 
-function routineMenu(w){
+function routineMenu(w,from){
+  from=from||(screen==='detail'?'detail':'dash');
   const fin=w.folder?trail(w.folder).map(x=>x.name).join(' / '):'All routines';
   openSheet(`<h4>${esc(w.name)}</h4><div class="menu">
     <button data-v="move">${ui('move')}<span class="sl">Move to a folder\u2026</span><span class="val">${esc(fin)}</span></button>
@@ -2457,10 +2522,12 @@ function routineMenu(w){
       S.workouts.splice(S.workouts.indexOf(w)+1,0,copy);
       save();renderDash();toast('Duplicated');
     }
-    else if(v==='edit')openEditor(w.id,'detail');
+    else if(v==='edit')openEditor(w.id,from);
     else if(v==='del')setTimeout(()=>confirmSheet(`Delete \u201c${esc(w.name)}\u201d?`,
       'The routine and its media are removed. Its past training moves to the archive in Settings.','Delete routine',()=>{
-        deleteWorkouts([w.id]);closeDetail();toast('Routine deleted');
+        deleteWorkouts([w.id]);
+        if(screen==='detail')closeDetail();else renderDash();
+        toast('Routine deleted');
       },'Keep it'),0);
   });
 }
@@ -3231,7 +3298,7 @@ function settingAction(k,el){
 const stepSec=(v,d)=>Math.max(0,Math.min(900,v+d*(d>0?(v<20?1:v<60?5:15):(v<=20?1:v<=60?5:15))));
 const stepperHTML=(p,v)=>`<div class="stepper"><button data-keep="${p}-" aria-label="Shorter">${ui('minus')}</button><output class="num">${v?fmtS(v):'Off'}</output><button data-keep="${p}+" aria-label="Longer">${ui('plus')}</button></div>`;
 const TPRESETS=[0,3,5,10,15,30];
-function transSheet(){
+function transSheet(back){
   const w=E.w;
   const lbl=which=>w.cues?.[which]?cueLabel(w.cues[which]):`Default: ${cueLabel(S.settings.cues[which])}`;
   const body=()=>{
@@ -3250,7 +3317,8 @@ function transSheet(){
     <div class="dialfoot"><button class="btn pri" data-v="done">Done</button></div>`;
   };
   openSheet(body(),v=>{
-    if(v==='tstart'||v==='tend')setTimeout(()=>cueSheet({scope:'routine',w,it:null,which:v},()=>setTimeout(transSheet,300)),0);
+    if(v==='tstart'||v==='tend')setTimeout(()=>cueSheet({scope:'routine',w,it:null,which:v},()=>transSheet(back)),0);
+    else if(v==='done'&&back)back();
   },{onKeep:v=>{
     if(v==='st-'||v==='st+')w.trans=stepSec(transOf(w),v==='st+'?1:-1);
     else if(v==='t:def')delete w.trans;
@@ -4007,9 +4075,9 @@ function workoutSoundsSheet(){
       <button data-v="co">${ui('speak')}Time callouts<span class="val">${esc(w.callouts?calloutLabel(w.callouts):`Default: ${calloutLabel(S.settings.callouts)}`)}</span></button>
     </div>
     <div class="cdsheet"><div class="sect">${ui('bell','icon sm')}Countdown beeps before each interval</div>${cdChips(cdCur,true,cdNorm(S.settings.countdown))}</div>`,v=>{
-    if(v==='tr'){setTimeout(transSheet,0);return}
-    if(v==='co'){setTimeout(()=>calloutSheet('routine',w,null,()=>setTimeout(workoutSoundsSheet,300)),0);return}
-    setTimeout(()=>cueSheet({scope:'routine',w,it:null,which:v},()=>setTimeout(workoutSoundsSheet,300)),0);
+    if(v==='tr'){setTimeout(()=>transSheet(workoutSoundsSheet),0);return}
+    if(v==='co'){setTimeout(()=>calloutSheet('routine',w,null,workoutSoundsSheet),0);return}
+    setTimeout(()=>cueSheet({scope:'routine',w,it:null,which:v},workoutSoundsSheet),0);
   },{onKeep:(k,el)=>{
     if(k!=='log')return;
     if(w.nolog)delete w.nolog;else w.nolog=true;
@@ -4025,6 +4093,32 @@ function workoutSoundsSheet(){
   };
 }
 
+/* How many copies. A set of eight pull-ups is eight cards, and making them one
+   tap at a time was the sort of thing you only do once. */
+function dupSheet(i){
+  const it=E.w.intervals[i];if(!it)return;
+  let n=1;
+  const name=it.title||`Interval ${i+1}`;
+  const body=()=>`<h4>Duplicate \u201c${esc(name)}\u201d</h4>
+    <p class="small">The copies go in straight after it, with everything it has \u2014 its length, icon, sounds and media.</p>
+    <div class="tchips">${[1,2,3,4,5,8,10].map(k=>`<button class="chip ${n===k?'on':''}" data-keep="n:${k}">${k}</button>`).join('')}</div>
+    <div class="stepper"><button data-keep="n-" aria-label="Fewer">${ui('minus')}</button><output class="num">${n}</output><button data-keep="n+" aria-label="More">${ui('plus')}</button></div>
+    <p class="small">${E.w.intervals.length} \u2192 ${E.w.intervals.length+n} intervals, ${fmt(total(E.w)+durOf(it)*n)} in all.</p>
+    <div class="dialfoot"><button class="btn" data-v="no">Cancel</button><button class="btn pri" data-v="go">${n===1?'Duplicate':`Add ${n} copies`}</button></div>`;
+  openSheet(body(),v=>{
+    if(v!=='go')return;
+    const copies=Array.from({length:n},()=>({...structuredClone(it),id:uid()}));
+    E.w.intervals.splice(i+1,0,...copies);
+    renderEditor();
+    toast(n===1?'Duplicated':`${n} copies added`);
+  },{onKeep:v=>{
+    if(v==='n-')n=Math.max(1,n-1);
+    else if(v==='n+')n=Math.min(50,n+1);
+    else if(v.startsWith('n:'))n=+v.slice(2);
+    else return;
+    $('#sheetBody').innerHTML=body();
+  }});
+}
 function iconSheet(it){
   openSheet(`<h4>Interval icon</h4><div class="icongrid">
     ${it.media?`<button data-v="@img" class="${it.iconImg?'on':''}">${it.iconImg?`<img class="imgicon" src="${it.iconImg}" alt="">`:ui('crop')}<span>From image</span></button>`:''}
@@ -4235,7 +4329,7 @@ function bindEditor(){
           <button data-v="callouts">${ui('speak')}Time callouts<span class="val">${esc(it.callouts?calloutLabel(it.callouts):'Default')}</span></button>
           <button data-keep="hold" class="swrow ${it.hold?'on':''}" role="switch" aria-checked="${!!it.hold}">${ui('hand')}Wait for a tap to start<span class="switch"></span></button>
           ${it.media?.type==='video'||it.audio?`<button data-v="fitdur">${ui('watch')}Match duration to ${it.media?.type==='video'?'video':'audio'}</button>`:''}
-          <button data-v="dup">${ui('copy')}Duplicate</button>
+          <button data-v="dup">${ui('copy')}Duplicate<span class="val">1 or more</span></button>
           <button data-v="up" ${i===0?'disabled':''}>${ui('up')}Move up</button>
           <button data-v="down" ${i===n-1?'disabled':''}>${ui('down')}Move down</button>
           <button data-v="del" class="red">${ui('trash')}Delete interval</button></div>`,v=>{
@@ -4244,7 +4338,7 @@ function bindEditor(){
           if(v==='fitdur'){matchDuration(it,it.media?.type==='video'?'media':'audio');return}
           if(v==='callouts'){setTimeout(()=>calloutSheet('interval',E.w,it),0);return}
 
-          if(v==='dup')L.splice(i+1,0,{...structuredClone(it),id:uid()});
+          if(v==='dup'){setTimeout(()=>dupSheet(i),0);return}
           if(v==='up'&&i>0)[L[i-1],L[i]]=[L[i],L[i-1]];
           if(v==='down'&&i<n-1)[L[i+1],L[i]]=[L[i],L[i+1]];
           if(v==='del'){stopPreview();L.splice(i,1);releaseMedia([it.media?.key,it.audio?.key,it.cues?.start?.key,it.cues?.end?.key])}
@@ -4686,7 +4780,9 @@ function tickRuns(){
       }
       r.lastSi=p.si;
       changed=true;
-      if(r.id===focusId&&runVisible())showInterval(r);
+      // The numbers change once a second, but a boundary is not on that second:
+      // without this the new interval's time sat a beat behind its own ring.
+      if(r.id===focusId&&runVisible()){showInterval(r);beat()}
       if(held){holdRun(r,p.seg);if(r.id===focusId&&runVisible())renderRunner();continue}
       restartTrack(r);
     }
@@ -5237,24 +5333,50 @@ function showLogPick(r){
    without a frame of catching up. */
 function setRing(seg,el,paused){
   const w=RE.arc||(RE.arc=$('#rSweep'));if(!w)return;
-  clearTimeout(RE.sL);clearTimeout(RE.sR);
+  clearTimeout(RE.sL);clearTimeout(RE.sR);RE.sL=RE.sR=0;
   if(!seg||!seg.dur){w.classList.add('off');return}
-  w.classList.remove('off');
   const half=seg.dur/2,e=Math.max(0,Math.min(el,seg.dur));
+  w.classList.remove('off');
   w.style.setProperty('--half',half+'ms');
-  w.style.setProperty('--dL',`${-e}ms`);          // the left half empties first
-  w.style.setProperty('--dR',`${half-e}ms`);      // the right half waits its turn
   const L=$('.rmask.l',w),R=$('.rmask.r',w);
-  const spend=(elm,left)=>{
-    elm.classList.toggle('spent',left<=0);
-    // While paused nothing is going anywhere, so nothing is scheduled either.
-    return (left>0&&!paused)?setTimeout(()=>elm.classList.add('spent'),left):0;
-  };
-  RE.sL=spend(L,half-e);
-  RE.sR=spend(R,seg.dur-e);
-  pauseRing(paused);
+  L.classList.toggle('spent',e>=half);
+  R.classList.toggle('spent',e>=seg.dur);
+  ringTime(e,paused);
+  if(!paused){
+    if(e<half)RE.sL=setTimeout(()=>L.classList.add('spent'),half-e);
+    if(e<seg.dur)RE.sR=setTimeout(()=>R.classList.add('spent'),seg.dur-e);
+  }
 }
-function pauseRing(on){const w=RE.arc||(RE.arc=$('#rSweep'));if(w)w.style.setProperty('--play',on?'paused':'running')}
+/* Both wedges share one timeline: zero at the start of the interval, its whole
+   length at the end. So putting the ring where the clock is means setting one
+   number on both, and resuming, seeking and coming back from a reload are the
+   same line of code.
+
+   It has to be set on the animations themselves. Re-pointing a finished CSS
+   animation at a new delay does not wind it back to the beginning — which is
+   why the ring drained once and then stayed empty for the rest of a routine. */
+function ringAnims(){
+  const w=RE.arc||(RE.arc=$('#rSweep'));if(!w)return[];
+  const out=[];
+  for(const sp of $$('.rspin',w)){
+    let a=sp.getAnimations?sp.getAnimations():[];
+    if(!a.length){
+      // A hidden element has no animations; it gets them back once style is live.
+      sp.style.animation='none';void sp.offsetWidth;sp.style.animation='';
+      a=sp.getAnimations?sp.getAnimations():[];
+    }
+    out.push(...a);
+  }
+  return out;
+}
+function ringTime(e,paused){
+  for(const a of ringAnims()){
+    // play() before the time: calling it on a finished animation rewinds it.
+    if(paused)a.pause();else a.play();
+    try{a.currentTime=e}catch(_){}
+  }
+}
+function pauseRing(on){for(const a of ringAnims()){if(on)a.pause();else a.play()}}
 function showInterval(r){
   const w=workoutOf(r),box=$('#rMedia'),run=$('#run');
   RE.shown={};RE.mtok=null;
@@ -5541,9 +5663,18 @@ function onKey(e){
 /* ================= Reordering by drag =================
    Grab the strip down the left of a card. Works with mouse, touch or pen; the
    list scrolls itself when you drag near an edge. */
-function sortable(listSel,itemSel,onDrop){
+/* Reordering a list, and — when `opts.into` names a kind of card — dropping one
+   card onto another instead, which is how a routine gets filed in a folder. */
+function sortable(listSel,itemSel,onDrop,opts={}){
   const list=$(listSel);if(!list)return;
   let st=null;
+  const overTarget=e=>{
+    if(!opts.into)return null;
+    // The lifted card ignores the pointer (see .lift), so this sees through it.
+    const el=document.elementFromPoint(e.clientX,e.clientY);
+    const t=el&&el.closest(opts.into);
+    return t&&t!==st.item?t:null;
+  };
   const shift=(s)=>s.all.forEach((el,i)=>{
     if(i===s.from)return;
     const d=s.to>s.from&&i>s.from&&i<=s.to?-s.h:s.to<s.from&&i>=s.to&&i<s.from?s.h:0;
@@ -5575,7 +5706,15 @@ function sortable(listSel,itemSel,onDrop){
       if(i<st.from&&mid<c)to=Math.min(to,i);
       if(i>st.from&&mid>c)to=Math.max(to,i);
     });
-    if(to!==st.to){st.to=to;shift(st)}
+    const t=overTarget(e);
+    if(t!==st.drop){
+      st.drop?.classList.remove('dropin');
+      st.drop=t;
+      if(t){t.classList.add('dropin');haptic(10)}
+    }
+    if(st.drop){                            // held over a folder: stop shuffling
+      if(st.to!==st.from){st.to=st.from;shift(st)}
+    }else if(to!==st.to){st.to=to;shift(st)}
     const box=list.getBoundingClientRect(),m=52;
     if(e.clientY<box.top+m)list.scrollTop-=Math.min(14,(box.top+m-e.clientY)/3);
     else if(e.clientY>box.bottom-m)list.scrollTop+=Math.min(14,(e.clientY-box.bottom+m)/3);
@@ -5584,9 +5723,11 @@ function sortable(listSel,itemSel,onDrop){
     if(!st||e.pointerId!==st.pid)return;
     const s=st;st=null;
     document.body.classList.remove('sorting');
+    s.drop?.classList.remove('dropin');
     s.all.forEach(el=>{el.style.transform='';el.classList.remove('lift')});
     if(!s.moved)return;
     list._sorted=Date.now();
+    if(s.drop){haptic(30);opts.onInto?.(s.drop,s.from);return}
     if(s.to!==s.from){haptic(20);onDrop(s.from,s.to)}
   };
   list.addEventListener('pointerup',end);
@@ -5598,7 +5739,7 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const APP_BUILD='5.1 (2026.09.30)';
+const APP_BUILD='5.2 (2026.10.02)';
 const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
@@ -5859,10 +6000,12 @@ function bind(){
   $('#eBack').innerHTML=ui('back');$('#eDel').innerHTML=ui('trash');
   $('#dBack').innerHTML=ui('back');$('#dEdit').innerHTML=ui('edit');$('#dTime').innerHTML=ui('clock');
   $('#dMore').innerHTML=ui('more');
-  $('#dMore').onclick=()=>{const w=S.workouts.find(x=>x.id===detailId);if(w)routineMenu(w)};
+  $('#dMore').onclick=()=>{const w=S.workouts.find(x=>x.id===detailId);if(w)routineMenu(w,'detail')};
   $('#sBack').innerHTML=ui('back');$('#setBtn').innerHTML=ui('gear');$('#dAgain').innerHTML=ui('playplus','icon fill');
   $('#eWatch').innerHTML=ui('watch','icon sm');
-  sideDraggable($('#dashFab'),$('#dashTop'),'dashFab',addSheet);
+  sideDraggable($('#dashFab'),$('#dashTop'),'dashFab',()=>openEditor(null,'dash'));
+  $('#newFolderBtn').innerHTML=ui('folderPlus');
+  $('#newFolderBtn').onclick=newFolder;
   /* Folders are drawn above the routines, so a drop is kept on its own side of
      that line: dragging a routine up among the folders would otherwise appear to
      work and then snap back on the next render. Only the slots this folder
@@ -5882,15 +6025,34 @@ function bind(){
       reorder(S.workouts,a);
     }
     save();renderCards();renderMainChart();
-  });
+  },{into:'.fcard',onInto:(target,from)=>{
+    const at=atNow(),fs=foldersIn(at),ws=routinesIn(at);
+    const f=folderOf(target.dataset.folder);if(!f)return;
+    const item=from<fs.length?fs[from]:ws[from-fs.length];
+    if(!item)return;
+    if(from<fs.length){
+      if(folderLoops(item.id,f.id))return toast('A folder cannot go inside itself');
+      item.parent=f.id;
+    }else item.folder=f.id;
+    save();renderCards();renderMainChart();
+    toast(`Moved into ${f.name}`,{label:'Undo',fn:()=>{
+      if(from<fs.length)item.parent=at;else item.folder=at;
+      save();renderCards();renderMainChart();
+    }});
+  }});
   $('#crumbs').addEventListener('click',e=>{
     const c=e.target.closest('[data-at]');if(c)goFolder(c.dataset.at||null);
+  });
+  $('#recents').addEventListener('click',e=>{
+    const b=e.target.closest('[data-recent]');if(b)openDetail(b.dataset.recent);
   });
   $('#cards').addEventListener('click',e=>{
     if(justSorted($('#cards')))return;
     const into=e.target.closest('[data-into]');if(into)return goFolder(into.dataset.into);
     const fm=e.target.closest('[data-fmenu]');
     if(fm){const f=folderOf(fm.dataset.fmenu);if(f)folderMenu(f);return}
+    const wm=e.target.closest('[data-wmenu]');
+    if(wm){const w=S.workouts.find(x=>x.id===wm.dataset.wmenu);if(w)routineMenu(w,'dash');return}
     const ed=e.target.closest('[data-edit]');if(ed)return openEditor(ed.dataset.edit,'dash');
     const ag=e.target.closest('[data-again]');if(ag)return startNow(ag.dataset.again);
     const pl=e.target.closest('[data-play]');if(pl)return playFromCard(pl.dataset.play);
