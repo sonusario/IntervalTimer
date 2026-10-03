@@ -54,7 +54,7 @@ input{font:inherit;color:inherit}
 .topbar{display:flex;align-items:center;gap:12px;padding:10px 12px 8px 16px}
 .brand{display:flex;align-items:center;gap:9px;margin-right:auto;font-family:var(--disp);font-weight:800;font-size:28px;letter-spacing:.01em;line-height:1}
 .brand svg{width:30px;height:30px;flex:none}
-.count{color:var(--mu);font-size:13px}
+.count{color:var(--mu);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34vw}
 .cards{flex:1;overflow-y:auto;padding:4px 14px calc(var(--dh,var(--peek)) + 88px);display:flex;flex-direction:column;gap:10px}
 .wcard{position:relative;flex:none;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"title edit" "meta play" "rail rail";column-gap:10px;row-gap:2px;align-items:center;background:var(--s1);border-radius:var(--r);padding:10px 12px 12px 18px;overflow:hidden;cursor:pointer}
 .wcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--c)}
@@ -265,9 +265,16 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 .hint{flex:none;border:2px dashed var(--line);border-radius:var(--r);padding:26px 20px;color:var(--mu);text-align:center;font-size:15px;line-height:1.4}
 /* ---------- Folders ----------
    A folder card is the same card as a routine, with one row instead of three. */
-.crumbs{flex:none;display:flex;align-items:center;gap:2px;padding:2px 14px 6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+/* The list's own bar: where it is in the folders, and how it is ordered. */
+.listbar{flex:none;display:flex;align-items:center;gap:8px;padding:2px 14px 6px}
+.listbar.hidden{display:none}
+.crumbs{flex:1;min-width:0;display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .crumbs::-webkit-scrollbar{display:none}
-.crumbs.hidden{display:none}
+.crumbs:empty{flex:1}
+.sortbtn{flex:none;display:inline-flex;align-items:center;gap:5px;max-width:52vw;padding:5px 10px;border-radius:999px;background:var(--s1);color:var(--mu);font-weight:600;font-size:13px;white-space:nowrap}
+.sortbtn:active{background:var(--s2)}
+.sortbtn span{overflow:hidden;text-overflow:ellipsis}
+.sortbtn.on{color:var(--ac-ink);background:var(--ac)}
 .crumb{flex:none;display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;color:var(--mu);font-weight:600;font-size:14px;white-space:nowrap}
 .crumb:active{background:var(--s2)}
 .crumb.on{color:var(--tx);background:var(--s1)}
@@ -275,6 +282,9 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 .wcard.fcard{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"open more";padding:4px 6px 4px 18px;align-items:center}
 /* A card being dragged must not intercept the pointer, or nothing underneath it
    can be found as a place to drop it. */
+.cards.nodrag .grip{display:none}
+.cards.nodrag .wcard{padding-left:14px}
+.cards.nodrag .wcard.fcard{padding-left:14px}
 .wcard.lift{pointer-events:none}
 .wcard.dropin{outline:2px solid var(--c);outline-offset:-2px;background:color-mix(in srgb,var(--c) 14%,var(--s1))}
 .wcard.dropin .fic{scale:1.12}
@@ -882,7 +892,10 @@ body.watching #sheet{z-index:70}
     </div>
     <button class="updbar hidden" id="updBar" aria-label="Reload to use the new version"></button>
     <div class="runs" id="runs" aria-label="Running and upcoming routines"></div>
-    <nav class="crumbs hidden" id="crumbs" aria-label="Folders"></nav>
+    <div class="listbar hidden" id="listbar">
+      <nav class="crumbs" id="crumbs" aria-label="Folders"></nav>
+      <button class="sortbtn" id="sortBtn" aria-label="Sort"></button>
+    </div>
     <div class="recents hidden" id="recents" aria-label="Recent routines"></div>
     <div class="cards" id="cards"></div>
     <i class="dz l"></i><i class="dz r"></i>
@@ -1157,6 +1170,7 @@ const UI={plus:'M12 5v14M5 12h14',edit:'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',back:'
   flip:'M4 12a8 8 0 0 1 14-5.3L20 9M20 12a8 8 0 0 1-14 5.3L4 15M20 4v5h-5M4 20v-5h5',
   folder:'M3 7h6l2 2h10v10H3z', home:'M4 11l8-7 8 7M6 10v10h12V10',
   folderPlus:'M3 7h6l2 2h10v10H3zM12 12v5M9.5 14.5h5',
+  sort:'M4 7h13M4 12h9M4 17h5M17 11v8M14 16l3 3 3-3',
   move:'M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3',
   crop:'M6 2v14h14M2 6h14v14',off:'M4 9h4l5-4v14l-5-4H4zM17 9l5 6M22 9l-5 6',
   clock:'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M12 7v5l3.5 2',
@@ -1311,7 +1325,7 @@ const Store=(()=>{
 const PLACES=[['behind','Behind the timer'],['panel','Its own panel']];
 const placeOf=m=>m&&m.place==='panel'?'panel':'behind';
 const DEF_SETTINGS={cues:{start:{kind:'none'},end:{kind:'builtin',id:'chime'},done:{kind:'builtin',id:'levelup'},tstart:{kind:'builtin',id:'tick'},tend:{kind:'none'}},countdown:3,volume:.8,haptics:true,wake:true,trans:0,callouts:{mode:'off'},ovl:.45,shrinkVid:false};
-let S={v:5,workouts:[],folders:[],history:[],archive:[],runs:[],settings:structuredClone(DEF_SETTINGS),ui:{dashFab:'right',editFab:'right',range:'d7',arch:'d30',drawer:'peek',hide:[],hideA:[],avg:true,avgA:true,avgWin:0,avgWinA:0,chartOff:0,chartOffA:0,chartEdit:false,archEdit:false,at:null}};
+let S={v:5,workouts:[],folders:[],history:[],archive:[],runs:[],settings:structuredClone(DEF_SETTINGS),ui:{dashFab:'right',editFab:'right',range:'d7',arch:'d30',drawer:'peek',hide:[],hideA:[],avg:true,avgA:true,avgWin:0,avgWinA:0,chartOff:0,chartOffA:0,chartEdit:false,archEdit:false,at:null,sort:'custom'}};
 function save(){Store.saveState(S)}
 /* Brings any older saved state up to date. History from routines that no longer exist
    moves to the archive. */
@@ -1360,6 +1374,7 @@ function migrate(v){
   }
   for(const w of s.workouts)if(!w.folder||!fids.has(w.folder))w.folder=null;
   if(s.ui.at&&!fids.has(s.ui.at))s.ui.at=null;
+  if(!SORTS[s.ui.sort])s.ui.sort='custom';
   s.v=5;
   return s;
 }
@@ -2301,11 +2316,51 @@ function synthSheet(init,onUse,title='Make a sound'){
 function renderDash(){renderCards();renderRunsStrip();setDrawer($('#drawer').dataset.snap,false);renderMainChart()}
 function renderCrumbs(){
   const bar=$('#crumbs'),at=atNow(),path=trail(at);
-  bar.classList.toggle('hidden',!at);
   if(!at){bar.innerHTML='';return}
   bar.innerHTML=`<button class="crumb" data-at="">${ui('home','icon xs')}All</button>`+
     path.map((f,i)=>`${ui('right','icon xs mu')}<button class="crumb ${i===path.length-1?'on':''}" data-at="${esc(f.id)}">${esc(f.name)}</button>`).join('');
 }
+/* ---------- Sorting ----------
+   A sort is a way of looking at the list, not a change to it: the arrays keep the
+   order you arranged by hand, so "Custom" is not a saved snapshot to restore but
+   simply what is there when nothing is sorting it. Folders stay above routines
+   either way, and sort among themselves by whatever of the key applies to them —
+   a folder has no length and has never been run.  */
+const lastRunOf=w=>{
+  let t=0;
+  for(const e of S.history)if(e.workoutId===w.id){const x=e.at||Date.parse((e.date||'')+'T12:00:00')||0;if(x>t)t=x}
+  for(const r of runs)if(r.wid===w.id)t=Math.max(t,r.doneAt||Date.now());
+  return t;
+};
+const byName=(a,b)=>(a.name||'').localeCompare(b.name||'',undefined,{numeric:true,sensitivity:'base'});
+const SORTS={
+  custom:{n:'Custom',tag:'',note:'The order you put them in',w:null,f:null},
+  name:  {n:'Name A \u2013 Z',tag:'by name',w:byName,f:byName},
+  nameZ: {n:'Name Z \u2013 A',tag:'by name, back to front',w:(a,b)=>byName(b,a),f:(a,b)=>byName(b,a)},
+  longest:{n:'Longest first',tag:'longest first',w:(a,b)=>total(b)-total(a)||byName(a,b),f:null},
+  shortest:{n:'Shortest first',tag:'shortest first',w:(a,b)=>total(a)-total(b)||byName(a,b),f:null},
+  recent:{n:'Recently run',tag:'recently run',w:(a,b)=>lastRunOf(b)-lastRunOf(a)||byName(a,b),f:null},
+  newest:{n:'Newest first',tag:'newest first',w:(a,b)=>(b.created||0)-(a.created||0)||byName(a,b),f:null},
+};
+const sortNow=()=>SORTS[S.ui.sort]?S.ui.sort:'custom';
+const sorting=()=>sortNow()!=='custom';
+/* A copy, always: sorting the array itself would throw the custom order away. */
+const inOrder=(list,which)=>{
+  const cmp=SORTS[sortNow()]?.[which];
+  return cmp?list.slice().sort(cmp):list;
+};
+function sortSheet(){
+  openSheet(`<h4>Sort</h4>
+    <p class="small">How this list is ordered. Dragging a card to a new place is only possible under Custom \u2014 the others are a way of looking at it.</p>
+    <div class="menu">${Object.entries(SORTS).map(([k,v])=>
+      `<button data-v="${k}" class="${sortNow()===k?'on':''}">${ui(k==='custom'?'move':'list')}<span class="sl">${v.n}${v.note?`<small>${v.note}</small>`:''}</span>${sortNow()===k?`<span class="val">${ui('check','icon sm')}</span>`:''}</button>`).join('')}</div>`,
+  v=>{
+    if(!SORTS[v])return;
+    S.ui.sort=v;save();renderCards();
+    toast(v==='custom'?'Back to your own order':`Sorted by ${SORTS[v].n.toLowerCase()}`);
+  });
+}
+
 /* ---------- Recent routines ----------
    The ones you have actually been running, newest first, so a routine filed
    three folders deep is still one tap away. Sitting at the top level only: once
@@ -2355,8 +2410,14 @@ function folderCard(f){
 function renderCards(){
   const box=$('#cards'),fab=$('#dashFab'),at=atNow();
   renderCrumbs();renderRecents();
-  const here=routinesIn(at),folders=foldersIn(at);
+  const here=inOrder(routinesIn(at),'w'),folders=inOrder(foldersIn(at),'f');
   $('#dashCount').textContent=S.workouts.length?plural(S.workouts.length,'routine'):'';
+  const sb=$('#sortBtn');
+  sb.classList.toggle('on',sorting());
+  sb.innerHTML=ui('sort','icon sm')+(sorting()?`<span>${esc(SORTS[sortNow()].tag)}</span>`:'');
+  sb.setAttribute('aria-label',sorting()?`Sorted ${SORTS[sortNow()].tag}, tap to change`:'Sort');
+  $('#listbar').classList.toggle('hidden',!S.workouts.length&&!S.folders.length);
+  $('#cards').classList.toggle('nodrag',sorting());
   if(!S.workouts.length&&!S.folders.length){
     box.innerHTML=`<button class="newcard" id="newCard">${ui('plus')}<b>Create new routine</b><span>Build a sequence of timed intervals</span></button>
       <button class="chip sample" id="sample">Load sample data</button>`;
@@ -2395,13 +2456,22 @@ function renderCards(){
   fab.dataset.side=S.ui.dashFab;
 }
 /* Moving between folders is a step you can take back, so the system back gesture
-   walks up the hierarchy before it leaves the app. */
+   walks up the hierarchy before it leaves the app.
+
+   One entry per level, keyed by the folder it is for. A single shared entry —
+   which is what this was — gave the same history whether you were one folder
+   deep or four, so back always dropped straight to the top. */
+const navFolders=()=>NAV.filter(e=>e.key.startsWith('folder:')).map(e=>e.key.slice(7));
 function goFolder(id){
-  const was=atNow();
   S.ui.at=id&&folderOf(id)?id:null;
   save();
-  if(S.ui.at&&!was)navOpen('folder',()=>goFolder(null));
-  else if(!S.ui.at&&was)navDone('folder');
+  const want=trail(S.ui.at).map(f=>f.id),have=navFolders();
+  let i=0;while(i<have.length&&i<want.length&&have[i]===want[i])i++;
+  if(i<have.length)navDone('folder:'+have[i]);      // and everything above it
+  for(let j=i;j<want.length;j++){
+    const fid=want[j];
+    navOpen('folder:'+fid,()=>goFolder(folderOf(fid)?.parent||null));
+  }
   renderCards();renderMainChart();
   $('#cards').scrollTop=0;
 }
@@ -5668,12 +5738,31 @@ function onKey(e){
 function sortable(listSel,itemSel,onDrop,opts={}){
   const list=$(listSel);if(!list)return;
   let st=null;
-  const overTarget=e=>{
+  /* What the card being dragged is currently over, by how much of a target it
+     covers rather than by where the finger happens to be. A pointer on the grip
+     sits at the very edge of a tall card, so asking what is under the pointer
+     only answered yes once the two cards almost completely coincided.
+
+     A card that can itself hold things — a folder over a folder — has to be
+     able to pass by as well as go in, so for that it is the middle of the
+     target that counts; anything else may use the whole of it. */
+  const NEST_MIN=0.3, NEST_EDGE=0.28;
+  const overTarget=dy=>{
     if(!opts.into)return null;
-    // The lifted card ignores the pointer (see .lift), so this sees through it.
-    const el=document.elementFromPoint(e.clientX,e.clientY);
-    const t=el&&el.closest(opts.into);
-    return t&&t!==st.item?t:null;
+    const r=st.rects[st.from];
+    const top=r.top+dy,bot=r.bottom+dy,mid=(top+bot)/2;
+    const picky=!!opts.strict?.(st.item);
+    let best=null,bestOv=0;
+    st.all.forEach((el,i)=>{
+      if(i===st.from||!el.matches(opts.into))return;
+      const t=st.rects[i];
+      const ov=Math.min(bot,t.bottom)-Math.max(top,t.top);
+      if(ov<=0)return;
+      if(picky&&(mid<t.top+t.height*NEST_EDGE||mid>t.bottom-t.height*NEST_EDGE))return;
+      if(ov/Math.max(1,t.height)<NEST_MIN&&ov/Math.max(1,r.height)<NEST_MIN)return;
+      if(ov>bestOv){bestOv=ov;best=el}
+    });
+    return best;
   };
   const shift=(s)=>s.all.forEach((el,i)=>{
     if(i===s.from)return;
@@ -5706,7 +5795,7 @@ function sortable(listSel,itemSel,onDrop,opts={}){
       if(i<st.from&&mid<c)to=Math.min(to,i);
       if(i>st.from&&mid>c)to=Math.max(to,i);
     });
-    const t=overTarget(e);
+    const t=overTarget(dy);
     if(t!==st.drop){
       st.drop?.classList.remove('dropin');
       st.drop=t;
@@ -5739,7 +5828,7 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const APP_BUILD='5.2 (2026.10.02)';
+const APP_BUILD='5.3 (2026.10.03)';
 const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
@@ -6006,12 +6095,14 @@ function bind(){
   sideDraggable($('#dashFab'),$('#dashTop'),'dashFab',()=>openEditor(null,'dash'));
   $('#newFolderBtn').innerHTML=ui('folderPlus');
   $('#newFolderBtn').onclick=newFolder;
+  $('#sortBtn').onclick=sortSheet;
   /* Folders are drawn above the routines, so a drop is kept on its own side of
      that line: dragging a routine up among the folders would otherwise appear to
      work and then snap back on the next render. Only the slots this folder
      already occupies are rewritten, so the order of everything elsewhere is
      left alone. */
   sortable('#cards','.wcard',(from,to)=>{
+    if(sorting())return;
     const at=atNow(),fs=foldersIn(at),ws=routinesIn(at),n=fs.length;
     const reorder=(arr,order)=>{
       const slots=[];arr.forEach((x,i)=>{if(order.includes(x))slots.push(i)});
@@ -6025,7 +6116,8 @@ function bind(){
       reorder(S.workouts,a);
     }
     save();renderCards();renderMainChart();
-  },{into:'.fcard',onInto:(target,from)=>{
+  },{into:'.fcard',strict:el=>el.classList.contains('fcard'),onInto:(target,from)=>{
+    if(sorting())return;
     const at=atNow(),fs=foldersIn(at),ws=routinesIn(at);
     const f=folderOf(target.dataset.folder);if(!f)return;
     const item=from<fs.length?fs[from]:ws[from-fs.length];
