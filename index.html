@@ -3,9 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#1A1D2E">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
 <title>Interval</title>
 <meta name="description" content="Interval routine timer">
 <meta name="theme-color" content="#1A1D2E">
@@ -1079,8 +1076,6 @@ function timeline(w){
 }
 const segOfInterval=(w,i)=>timeline(w).segs.findIndex(s=>s.kind==='int'&&s.idx===i);
 const segSubject=(w,s)=>w.intervals[s.kind==='int'?s.idx:Math.min(s.k,w.intervals.length-1)];
-/* A run keeps its own copy with the inherited transition resolved, so changing the
-   app default can't shift a routine that is already running. */
 /* A run's frozen copy, and the routine's natural length alongside it — the length a
    synced run can be logged at instead of the time it actually took. */
 function freshCopy(r,w){
@@ -1153,7 +1148,6 @@ const dayKey=d=>{const x=new Date(d),p=n=>String(n).padStart(2,'0');return `${x.
 const plural=(n,w)=>`${n} ${w}${n===1?'':'s'}`;
 const spokenDur=s=>{const m=Math.floor(s/60),x=s%60;return [m&&plural(m,'minute'),x&&plural(x,'second')].filter(Boolean).join(' ')||'0 seconds'};
 
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const blobToDataURL=b=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result));r.onerror=rej;r.readAsDataURL(b)});
 function b64ToBuf(b64){const s=atob(b64.replace(/\s+/g,''));const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u.buffer}
 
@@ -1284,15 +1278,22 @@ const Store=(()=>{
     if(idb){const v=await get('kv','state');if(v)return v}
     try{const j=localStorage.getItem(LS);return j?JSON.parse(j):null}catch(e){return null}
   }
-  let stateT=null;
+  let stateT=null,pending=null;
+  const write=()=>{
+    clearTimeout(stateT);stateT=null;
+    const s=pending;pending=null;if(!s)return;
+    const snap=JSON.parse(JSON.stringify(s));
+    if(idb)put('kv','state',snap);
+    else{try{localStorage.setItem(LS,JSON.stringify(snap))}catch(e){}}
+  };
   function saveState(s){
-    clearTimeout(stateT);
-    stateT=setTimeout(()=>{
-      const snap=JSON.parse(JSON.stringify(s));
-      if(idb)put('kv','state',snap);
-      else{try{localStorage.setItem(LS,JSON.stringify(snap))}catch(e){}}
-    },250);
+    pending=s;clearTimeout(stateT);
+    stateT=setTimeout(write,250);
   }
+  /* A phone can close an app it has put in the background without warning, so a
+     save still waiting out its delay is written the moment the page is hidden. */
+  addEventListener('visibilitychange',()=>{if(document.hidden)write()});
+  addEventListener('pagehide',write);
   async function putBlob(blob){const id=uid(),ref='l:'+id;blobs.set(ref,blob);fresh.add(ref);await put('blobs',id,blob);return ref}
   async function blob(ref){
     if(!ref)return null;
@@ -1786,7 +1787,6 @@ function cdNorm(v){
 }
 const countdownOf=w=>cdNorm(w?.countdown??S.settings.countdown);
 const countdownOn=w=>countdownOf(w)>0;
-const cdLabel=n=>n?`${n}s of beeps`:'Off';
 /* Spoken "time left" checks: off, every n seconds, or a halving countdown. */
 const DEF_CALLOUT={mode:'off'};
 const calloutOf=(w,it)=>(it&&it.callouts)||w.callouts||S.settings.callouts||DEF_CALLOUT;
@@ -1884,7 +1884,6 @@ function bindSheetDrag(){
     const nearTop=e.clientY-box.getBoundingClientRect().top<64;
     if(!onHandle&&(!nearTop||e.target.closest('button,input,select,textarea,label,[data-keep],[data-v]')))return;
     if(e.pointerType==='mouse'&&!e.target.closest('input,select,textarea'))e.preventDefault();
-    if(e.pointerType==='mouse')e.preventDefault();
     st={y:e.clientY,pid:e.pointerId,ly:e.clientY,lt:performance.now(),v:0,moved:false,onGrab:!!e.target.closest('#sheetGrab')};
   });
   box.addEventListener('pointermove',e=>{
@@ -2462,16 +2461,26 @@ function renderCards(){
    which is what this was — gave the same history whether you were one folder
    deep or four, so back always dropped straight to the top. */
 const navFolders=()=>NAV.filter(e=>e.key.startsWith('folder:')).map(e=>e.key.slice(7));
-function goFolder(id){
-  S.ui.at=id&&folderOf(id)?id:null;
-  save();
-  const want=trail(S.ui.at).map(f=>f.id),have=navFolders();
+/* Only the folder entries that no longer apply are taken off. Winding back to the
+   first of them would also drop anything opened since — the chart pulled up over
+   the list — and back would then leave the app instead of lowering it. */
+function folderNav(){
+  const want=trail(atNow()).map(f=>f.id),have=navFolders();
   let i=0;while(i<have.length&&i<want.length&&have[i]===want[i])i++;
-  if(i<have.length)navDone('folder:'+have[i]);      // and everything above it
+  const drop=new Set(have.slice(i).map(f=>'folder:'+f));
+  if(drop.size&&navOK&&!navBack){
+    for(let k=NAV.length-1;k>=0;k--)if(drop.has(NAV[k].key))NAV.splice(k,1);
+    navSync();
+  }
   for(let j=i;j<want.length;j++){
     const fid=want[j];
     navOpen('folder:'+fid,()=>goFolder(folderOf(fid)?.parent||null));
   }
+}
+function goFolder(id){
+  S.ui.at=id&&folderOf(id)?id:null;
+  save();
+  folderNav();
   renderCards();renderMainChart();
   $('#cards').scrollTop=0;
 }
@@ -4352,7 +4361,7 @@ function bindEditor(){
   $('#eName').onkeydown=e=>{if(e.key==='Enter')e.target.blur()};
   $('#eColor').onclick=()=>colorSheet();
   $('#eSounds').onclick=workoutSoundsSheet;
-  $('#eTrans').onclick=transSheet;
+  $('#eTrans').onclick=()=>transSheet();
   $('#eWatch').onclick=openWatch;
   $('#eDel').onclick=()=>{
     confirmSheet(`Delete “${esc(E.w.name)}”?`,'The routine and its media are removed. Its past training moves to the archive in Settings.','Delete routine',()=>{
@@ -4652,7 +4661,6 @@ function startNow(wid){
   Object.assign(r,{anchor:now,tick:now,liveBegin:true});
   focusId=r.id;persistRuns();requestWake();tickRuns();openRunner(r.id);
 }
-/* New run from the timing sheet: past anchors start part-way through, future ones wait. */
 /* New run from the timing sheet. A past time either scales the routine into the
    window that is left (the default) or starts it part-way through. */
 function planRun(wid,plan){
@@ -4739,12 +4747,6 @@ function releaseHold(r){
   if(runVisible())renderRunner();
   refreshScreen();updateRunsUI(true);
   return true;
-}
-function subSegs(r){
-  if(!r.w)return [];
-  return timeline(r.w).segs
-    .map((s,si)=>({s,si}))
-    .filter(({s})=>s.kind==='int'&&r.w.intervals[s.idx]?.subW);
 }
 /* Give the child the window the parent's interval actually occupies. */
 function fitKid(c,seg){
@@ -5043,7 +5045,6 @@ function beginNow(r){
   persistRuns();tickRuns();
   if(runVisible())renderRunner();
 }
-/* Seeking moves the anchor; a jump to another interval can announce it. */
 /* Seeking moves the anchor, so the clock times follow along. */
 function seekSeg(r,si,ms,cue){
   if(!r?.w||!isLive(r))return;
@@ -5065,7 +5066,6 @@ function seekSeg(r,si,ms,cue){
   tickRuns();persistRuns();
   if(r.id===focusId&&runVisible()){drawRunner(true);syncVideo(r,true)}
 }
-const seekTo=(r,i,ms,cue)=>{if(r?.w)seekSeg(r,segOfInterval(r.w,i),ms,cue)};
 /* Back to the top of whatever is on screen now. */
 function restartSeg(r){
   if(!r?.w||!isLive(r))return;
@@ -5523,7 +5523,6 @@ function syncVideo(r,force){
   if(live){if(v.paused)v.play().catch(()=>{})}
   else if(!v.paused)v.pause();
 }
-/* Rail geometry is measured once per interval, not per frame. */
 /* Rail geometry is measured once per segment, not per frame. */
 function railGeo(){
   RE.fill=$('#railFill');
@@ -5828,7 +5827,7 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const APP_BUILD='5.3 (2026.10.03)';
+const APP_BUILD='5.4 (2026.10.21)';
 const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
@@ -6002,9 +6001,6 @@ self.addEventListener('message',e=>{
       const r=await fetch(url,{cache:'no-store'});
       if(!r||!r.ok)return reply('check-failed');
       const text=await r.clone().text(),fb=buildOf(text);
-      /* Replace the page under every key it is actually stored with. Putting it under
-         a bare URL instead can leave the entry a navigation matches untouched, and
-         then the reload keeps serving the copy it was meant to replace. */
       /* Replace the page under the key it is actually stored with. Inventing a key
          from the bare URL leaves the entry a navigation matches untouched, so the
          reload keeps serving the very copy it was asked to replace. With nothing
@@ -6180,6 +6176,7 @@ async function sweepOrphans(){
   document.documentElement.style.setProperty('--ovl',S.settings.ovl??.45);
   setDrawer(S.ui.drawer,false);
   show('dash');renderDash();
+  folderNav();      // reopened inside a folder: back still walks up out of it
   tickRuns();
   pump();heartbeat();
   setTimeout(sweepOrphans,5000);

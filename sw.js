@@ -69,9 +69,6 @@ self.addEventListener('message',e=>{
       const r=await fetch(url,{cache:'no-store'});
       if(!r||!r.ok)return reply('check-failed');
       const text=await r.clone().text(),fb=buildOf(text);
-      /* Replace the page under every key it is actually stored with. Putting it under
-         a bare URL instead can leave the entry a navigation matches untouched, and
-         then the reload keeps serving the copy it was meant to replace. */
       /* Replace the page under the key it is actually stored with. Inventing a key
          from the bare URL leaves the entry a navigation matches untouched, so the
          reload keeps serving the very copy it was asked to replace. With nothing
