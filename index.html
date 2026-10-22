@@ -804,6 +804,10 @@ body.watching #sheet{z-index:70}
      nothing on screen showing how far into an interval you are. */
   .rspin{animation-name:drain!important;animation-duration:var(--half,500ms)!important;
     animation-timing-function:linear!important;animation-fill-mode:both!important}
+  /* The rule above wipes the delays too, and without its delay the right half
+     drains alongside the left one: two half rings instead of one sweep. */
+  .rmask.r .rspin{animation-delay:var(--half,500ms)!important}
+  .rmask.l .rspin{animation-delay:0ms!important}
 }
 /* ---------- Wide screens: centered content ---------- */
 @media (min-width:700px) and (min-height:601px){
@@ -5446,7 +5450,11 @@ function ringTime(e,paused){
     try{a.currentTime=e}catch(_){}
   }
 }
-function pauseRing(on){for(const a of ringAnims()){if(on)a.pause();else a.play()}}
+function pauseRing(on){
+  // A frozen ring must not lose a half to a timer still counting toward its end.
+  if(on){clearTimeout(RE.sL);clearTimeout(RE.sR);RE.sL=RE.sR=0}
+  for(const a of ringAnims()){if(on)a.pause();else a.play()}
+}
 function showInterval(r){
   const w=workoutOf(r),box=$('#rMedia'),run=$('#run');
   RE.shown={};RE.mtok=null;
