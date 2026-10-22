@@ -1332,6 +1332,13 @@ const placeOf=m=>m&&m.place==='panel'?'panel':'behind';
 const DEF_SETTINGS={cues:{start:{kind:'none'},end:{kind:'builtin',id:'chime'},done:{kind:'builtin',id:'levelup'},tstart:{kind:'builtin',id:'tick'},tend:{kind:'none'}},countdown:3,volume:.8,haptics:true,wake:true,trans:0,callouts:{mode:'off'},ovl:.45,shrinkVid:false};
 let S={v:5,workouts:[],folders:[],history:[],archive:[],runs:[],settings:structuredClone(DEF_SETTINGS),ui:{dashFab:'right',editFab:'right',range:'d7',arch:'d30',drawer:'peek',hide:[],hideA:[],avg:true,avgA:true,avgWin:0,avgWinA:0,chartOff:0,chartOffA:0,chartEdit:false,archEdit:false,at:null,sort:'custom'}};
 function save(){Store.saveState(S)}
+/* IDs and colours go straight into the page's markup, so anything loaded (a
+   restored backup above all) is held to what the app itself would have made.
+   Cleaning an ID is deterministic, so every reference to it still matches. Some
+   tallies key plain objects by ID, so "__proto__" and its kind are moved aside. */
+const safeId=x=>{const t=String(x??'').replace(/[^\w-]/g,'_').slice(0,64);return !t?null:t in Object.prototype?'x'+t:t};
+const safeColor=(c,d)=>/^#[0-9a-f]{6}$/i.test(c||'')?c:d;
+const safeImg=u=>typeof u==='string'&&/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+=*$/.test(u)?u:null;
 /* Brings any older saved state up to date. History from routines that no longer exist
    moves to the archive. */
 function migrate(v){
@@ -1355,17 +1362,17 @@ function migrate(v){
   delete s.settings.media;delete s.settings.bleed;
   s.workouts=(Array.isArray(s.workouts)?s.workouts:[]).map(normRoutine);
   const ids=new Set(s.workouts.map(w=>w.id));
-  const hist=(Array.isArray(s.history)?s.history:[]).filter(e=>e&&e.date&&e.workoutId).map(e=>e.id?e:{...e,id:uid()});
+  const hist=(Array.isArray(s.history)?s.history:[]).filter(e=>e&&e.date&&e.workoutId).map(e=>({...e,id:safeId(e.id)||uid(),workoutId:safeId(e.workoutId)}));
   s.history=hist.filter(e=>ids.has(e.workoutId));
-  s.archive=[...(Array.isArray(s.archive)?s.archive:[]).filter(e=>e&&e.date),...hist.filter(e=>!ids.has(e.workoutId))];
-  s.runs=Array.isArray(s.runs)?s.runs.filter(r=>r&&r.id&&r.wid):[];
+  s.archive=[...(Array.isArray(s.archive)?s.archive:[]).filter(e=>e&&e.date).map(e=>({...e,id:safeId(e.id)||uid(),workoutId:safeId(e.workoutId),c:safeColor(e.c,undefined)})),...hist.filter(e=>!ids.has(e.workoutId))];
+  s.runs=Array.isArray(s.runs)?s.runs.filter(r=>r&&safeId(r.id)===r.id&&safeId(r.wid)===r.wid):[];
   /* Folders. A routine names the folder it sits in, a folder names the one it
      sits in, and nothing else changes — a save from before folders existed comes
      up with everything at the top level, which is where it already was. */
-  s.folders=(Array.isArray(s.folders)?s.folders:[]).filter(f=>f&&f.id).map(f=>({
-    id:String(f.id),name:String(f.name||'Folder').slice(0,40),
-    color:/^#[0-9a-f]{6}$/i.test(f.color||'')?f.color:'#5AA9FF',
-    parent:f.parent?String(f.parent):null,
+  s.folders=(Array.isArray(s.folders)?s.folders:[]).filter(f=>f&&safeId(f.id)).map(f=>({
+    id:safeId(f.id),name:String(f.name||'Folder').slice(0,40),
+    color:safeColor(f.color,'#5AA9FF'),
+    parent:safeId(f.parent),
   }));
   const fids=new Set(s.folders.map(f=>f.id));
   for(const f of s.folders)if(f.parent&&!fids.has(f.parent))f.parent=null;
@@ -1379,7 +1386,7 @@ function migrate(v){
   }
   for(const w of s.workouts)if(!w.folder||!fids.has(w.folder))w.folder=null;
   if(s.ui.at&&!fids.has(s.ui.at))s.ui.at=null;
-  if(!SORTS[s.ui.sort])s.ui.sort='custom';
+  if(!Object.hasOwn(SORTS,s.ui.sort))s.ui.sort='custom';
   s.v=5;
   return s;
 }
@@ -1418,18 +1425,19 @@ function subLoops(hostId,candId,depth=0){
   return w.intervals.some(it=>it.sub&&subLoops(hostId,it.sub.id,depth+1));
 }
 function normRoutine(w){
-  w.id=String(w.id||uid());w.name=String(w.name||'Routine');w.color=w.color||PALETTE[0];
+  w.id=safeId(w.id)||uid();w.name=String(w.name||'Routine');w.color=safeColor(w.color,PALETTE[0]);
   w.created=+w.created||0;w.cues=w.cues&&typeof w.cues==='object'?w.cues:{};
-  w.folder=w.folder?String(w.folder):null;
+  w.folder=safeId(w.folder);
   w.intervals=(Array.isArray(w.intervals)?w.intervals:[]).map(it=>({id:uid(),title:'',icon:null,iconImg:null,duration:30,mode:'s',media:null,audio:null,cues:{},...it,hold:!!it.hold}));
   const secs=x=>typeof x==='number'&&isFinite(x)&&x>=0;
   if(!secs(w.trans))delete w.trans;
   if(!/^#[0-9a-f]{6}$/i.test(w.color2||''))delete w.color2;
   w.intervals.forEach(it=>{
+    it.id=safeId(it.id)||uid();it.iconImg=safeImg(it.iconImg);
     if(!secs(it.pre))delete it.pre;
     if(!secs(it.post))delete it.post;
     delete it.subW;
-    if(it.sub&&typeof it.sub==='object'&&it.sub.id)it.sub={id:String(it.sub.id),name:String(it.sub.name||''),color:it.sub.color||null};
+    if(it.sub&&typeof it.sub==='object'&&safeId(it.sub.id))it.sub={id:safeId(it.sub.id),name:String(it.sub.name||''),color:safeColor(it.sub.color,null)};
     else delete it.sub;
   });
   return w;
@@ -2021,8 +2029,9 @@ function show(id){
 }
 
 /* ================= Recorder ================= */
-function openRecorder(title,onDone){
-  let stream=null,rec=null,chunks=[],blob=null,timer=null,t0=0,playH=null,an=null,src=null,raf=0,closed=false;
+/* back, if given, reopens the menu this came from when it is dismissed unused. */
+function openRecorder(title,onDone,back){
+  let stream=null,rec=null,chunks=[],blob=null,timer=null,t0=0,playH=null,an=null,src=null,raf=0,closed=false,picked=false;
   const MAX=90;
   const html=`<h4>${esc(title)}</h4><div class="recbox">
     <div class="rectime num" id="recTime">0:00</div>
@@ -2075,6 +2084,7 @@ function openRecorder(title,onDone){
     timer=setInterval(()=>{const s=(Date.now()-t0)/1000;$('#recTime').textContent=fmt(s);if(s>=MAX)stopRec()},200);
   };
   openSheet(html,v=>{
+    picked=true;
     if(v==='use'&&blob)onDone(blob);
     if(v==='file')pickFile('audio/*',onDone);
     if(v==='sys'){$('#filePick').setAttribute('capture','user');pickFile('audio/*',onDone)}
@@ -2097,7 +2107,7 @@ function openRecorder(title,onDone){
         $$('#recWave i').forEach(b=>b.style.height='3px');
       }
     },
-    onClose:()=>{closed=true;if(rec&&rec.state==='recording'){rec.onstop=null;rec.stop()}stopAll()}
+    onClose:()=>{closed=true;if(rec&&rec.state==='recording'){rec.onstop=null;rec.stop()}stopAll();if(back&&!picked)setTimeout(back,0)}
   });
 }
 
@@ -2281,16 +2291,17 @@ const SYN_R={freq:[0,1000,1],dur:[.05,3,.05],a:[0,1,.01],d:[0,1.5,.01],s:[0,1,.0
 const synTo=(k,v)=>k==='freq'?Math.round(Math.log(v/40)/Math.log(100)*1000):v;
 const synFrom=(k,x)=>k==='freq'?+(40*Math.pow(100,x/1000)).toFixed(1):+x;
 const synShow=(k,v)=>k==='freq'?`${Math.round(v)} Hz`:k==='dur'?`${v.toFixed(2)} s`:k==='s'||k==='vol'?`${Math.round(v*100)}%`:`${Math.round(v*1000)} ms`;
-function synthSheet(init,onUse,title='Make a sound'){
+/* back, if given, reopens the menu this came from when it is dismissed unused. */
+function synthSheet(init,onUse,title='Make a sound',back){
   const p={...DEF_SYN,...(init||{})};
-  let h=null;
+  let h=null,picked=false;
   const play=()=>{ensureAudio();h?.stop();h=null;synthBuffer({...p}).then(b=>{if(b)h=playBuffer(b)})};
   openSheet(`<h4>${esc(title)}</h4><div class="syn">
     <div class="waves" role="radiogroup" aria-label="Wave">${Object.entries(WAVES).map(([k,n])=>`<button data-keep="w:${k}" role="radio" aria-checked="${p.wave===k}" class="${p.wave===k?'on':''}">${waveIcon(k)}<span>${n}</span></button>`).join('')}</div>
     <svg class="envsvg" viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden="true"><path id="synEnv"/></svg>
     ${SYN_F.map(([k,n])=>`<label class="slrow"><span>${n}</span><input type="range" data-syn="${k}" min="${SYN_R[k][0]}" max="${SYN_R[k][1]}" step="${SYN_R[k][2]}" value="${synTo(k,p[k])}"><output id="syn_${k}">${synShow(k,p[k])}</output></label>`).join('')}
     <div class="dialfoot"><button class="btn" data-keep="play">Play</button><button class="btn pri" data-v="use">Use this sound</button></div></div>`,
-  v=>{if(v==='use'){h?.stop();onUse({...p})}},{
+  v=>{if(v==='use'){picked=true;h?.stop();onUse({...p})}},{
     onKeep:(v,el)=>{
       if(v==='play')return play();
       if(v.startsWith('w:')){
@@ -2299,7 +2310,7 @@ function synthSheet(init,onUse,title='Make a sound'){
         env();play();
       }
     },
-    onClose:()=>h?.stop()
+    onClose:()=>{h?.stop();if(back&&!picked)setTimeout(back,0)}
   });
   function env(){
     const T=Math.max(.001,p.dur+p.r),X=t=>(t/T*296+2).toFixed(1),Y=v=>(66-v*60).toFixed(1);
@@ -2329,28 +2340,33 @@ function renderCrumbs(){
    simply what is there when nothing is sorting it. Folders stay above routines
    either way, and sort among themselves by whatever of the key applies to them —
    a folder has no length and has never been run.  */
-const lastRunOf=w=>{
-  let t=0;
-  for(const e of S.history)if(e.workoutId===w.id){const x=e.at||Date.parse((e.date||'')+'T12:00:00')||0;if(x>t)t=x}
-  for(const r of runs)if(r.wid===w.id)t=Math.max(t,r.doneAt||Date.now());
-  return t;
+/* When each routine last ran, from one pass over history: sorting by it used to
+   scan all of history for every comparison. */
+const lastRuns=()=>{
+  const m=new Map();
+  for(const e of S.history){const x=e.at||Date.parse((e.date||'')+'T12:00:00')||0;if(x>(m.get(e.workoutId)||0))m.set(e.workoutId,x)}
+  for(const r of runs)m.set(r.wid,Math.max(m.get(r.wid)||0,r.doneAt||Date.now()));
+  return m;
 };
 const byName=(a,b)=>(a.name||'').localeCompare(b.name||'',undefined,{numeric:true,sensitivity:'base'});
 const SORTS={
   custom:{n:'Custom',tag:'',note:'The order you put them in',w:null,f:null},
   name:  {n:'Name A \u2013 Z',tag:'by name',w:byName,f:byName},
   nameZ: {n:'Name Z \u2013 A',tag:'by name, back to front',w:(a,b)=>byName(b,a),f:(a,b)=>byName(b,a)},
-  longest:{n:'Longest first',tag:'longest first',w:(a,b)=>total(b)-total(a)||byName(a,b),f:null},
-  shortest:{n:'Shortest first',tag:'shortest first',w:(a,b)=>total(a)-total(b)||byName(a,b),f:null},
-  recent:{n:'Recently run',tag:'recently run',w:(a,b)=>lastRunOf(b)-lastRunOf(a)||byName(a,b),f:null},
+  longest:{n:'Longest first',tag:'longest first',key:list=>new Map(list.map(w=>[w.id,total(w)])),w:(a,b,k)=>k.get(b.id)-k.get(a.id)||byName(a,b),f:null},
+  shortest:{n:'Shortest first',tag:'shortest first',key:list=>new Map(list.map(w=>[w.id,total(w)])),w:(a,b,k)=>k.get(a.id)-k.get(b.id)||byName(a,b),f:null},
+  recent:{n:'Recently run',tag:'recently run',key:lastRuns,w:(a,b,k)=>(k.get(b.id)||0)-(k.get(a.id)||0)||byName(a,b),f:null},
   newest:{n:'Newest first',tag:'newest first',w:(a,b)=>(b.created||0)-(a.created||0)||byName(a,b),f:null},
 };
-const sortNow=()=>SORTS[S.ui.sort]?S.ui.sort:'custom';
+const sortNow=()=>Object.hasOwn(SORTS,S.ui.sort)?S.ui.sort:'custom';
 const sorting=()=>sortNow()!=='custom';
-/* A copy, always: sorting the array itself would throw the custom order away. */
+/* A copy, always: sorting the array itself would throw the custom order away.
+   A sort with a costly key works it out once per routine, not per comparison. */
 const inOrder=(list,which)=>{
-  const cmp=SORTS[sortNow()]?.[which];
-  return cmp?list.slice().sort(cmp):list;
+  const s=SORTS[sortNow()],cmp=s[which];
+  if(!cmp)return list;
+  const k=s.key?.(list);
+  return list.slice().sort((a,b)=>cmp(a,b,k));
 };
 function sortSheet(){
   openSheet(`<h4>Sort</h4>
@@ -2358,7 +2374,7 @@ function sortSheet(){
     <div class="menu">${Object.entries(SORTS).map(([k,v])=>
       `<button data-v="${k}" class="${sortNow()===k?'on':''}">${ui(k==='custom'?'move':'list')}<span class="sl">${v.n}${v.note?`<small>${v.note}</small>`:''}</span>${sortNow()===k?`<span class="val">${ui('check','icon sm')}</span>`:''}</button>`).join('')}</div>`,
   v=>{
-    if(!SORTS[v])return;
+    if(!Object.hasOwn(SORTS,v))return;
     S.ui.sort=v;save();renderCards();
     toast(v==='custom'?'Back to your own order':`Sorted by ${SORTS[v].n.toLowerCase()}`);
   });
@@ -4069,8 +4085,9 @@ function trackSheet(it){
     ${a?`<button data-v="fitdur">${ui('watch')}Set interval to the audio length</button>`:''}
     ${a?`<button data-v="rm" class="red">${ui('trash')}Remove track</button>`:''}</div>`,v=>{
     if(v==='fitdur')matchDuration(it,'audio');
-    if(v==='rec')setTimeout(()=>openRecorder('Record audio track',b=>setTrack(it,b)),0);
-    if(v==='synth')setTimeout(()=>synthSheet(a?.kind==='synth'?a.p:null,p=>setSynthTrack(it,p),'Make an audio track'),0);
+    const back=()=>{if(owned(it))trackSheet(it)};
+    if(v==='rec')setTimeout(()=>openRecorder('Record audio track',b=>setTrack(it,b),back),0);
+    if(v==='synth')setTimeout(()=>synthSheet(a?.kind==='synth'?a.p:null,p=>setSynthTrack(it,p),'Make an audio track',back),0);
     if(v==='file')pickFile('audio/*',f=>setTrack(it,f));
     if(v==='rm'){stopPreview();const k=it.audio.key;it.audio=null;renderEditor();releaseMedia([k])}
   },{onKeep:(v,el)=>{
@@ -4133,8 +4150,9 @@ function cueSheet(target,after){
     else if(v==='none')apply({kind:'none'});
     else if(v.startsWith('b:'))apply({kind:'builtin',id:v.slice(2)});
     else if(v==='tts')apply({kind:'tts',text:$('#ttsIn').value.trim()||'{title}'});
-    else if(v==='synth')setTimeout(()=>synthSheet(cur?.kind==='synth'?cur.p:null,p=>{if(alive())apply({kind:'synth',p,name:synthName(p)})}),0);
-    else if(v==='rec')setTimeout(()=>openRecorder(`Record ${heading.toLowerCase()}`,b=>saveClip(b,'Recorded sound')),0);
+    const back=()=>{if(alive())cueSheet(target,after)};
+    if(v==='synth')setTimeout(()=>synthSheet(cur?.kind==='synth'?cur.p:null,p=>{if(alive())apply({kind:'synth',p,name:synthName(p)})},undefined,back),0);
+    else if(v==='rec')setTimeout(()=>openRecorder(`Record ${heading.toLowerCase()}`,b=>saveClip(b,'Recorded sound'),back),0);
     else if(v==='file')pickFile('audio/*',f=>saveClip(f,f.name.replace(/\.[^.]+$/,'').slice(0,28)||'Audio clip'));
   },{onKeep:v=>{
     ensureAudio();
@@ -5835,12 +5853,23 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const APP_BUILD='5.4 (2026.10.21)';
+const APP_BUILD='5.5 (2026.10.22)';
 const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
    never interrupted, and the new build is already cached for the next launch. */
 const buildIn=t=>{const m=/APP_BUILD=['"]([^'"]*)['"]/.exec(t||'');return m?m[1]:''};
+/* Is build a ahead of build b? Builds read "5.4 (2026.10.21)": the number first, then
+   the date. Going back to an older copy is not an update, so it is never offered.
+   One that cannot be read either way counts as new only if it differs. */
+function newerBuild(a,b){
+  const parse=x=>{const m=/^(\d+(?:\.\d+)*)\s*(?:\((\d+)\.(\d+)\.(\d+)\))?/.exec(x||'');
+    return m&&{v:m[1].split('.').map(Number),d:m[2]?[+m[2],+m[3],+m[4]]:[]}};
+  const cmp=(x,y)=>{for(let i=0;i<Math.max(x.length,y.length);i++)if((x[i]||0)!==(y[i]||0))return (x[i]||0)-(y[i]||0);return 0};
+  const pa=parse(a),pb=parse(b);
+  if(!pa||!pb)return a!==b;
+  return (cmp(pa.v,pb.v)||cmp(pa.d,pb.d))>0;
+}
 async function onUpdateReady(build){
   /* Only believe it when the site has actually moved past the build on screen. A
      worker comparing a page that a CDN never serves twice the same way would
@@ -5853,7 +5882,7 @@ async function onUpdateReady(build){
       if(r&&r.ok)build=buildIn(await r.text());
     }catch(e){}
   }
-  if(build&&build===APP_BUILD){
+  if(build&&!newerBuild(build,APP_BUILD)){
     if(!PWA.update)return;
     PWA.update=false;showUpdateBar();
     if(screen==='settings')renderSettings();
