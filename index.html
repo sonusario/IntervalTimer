@@ -5160,7 +5160,8 @@ function completeRun(r){
   persistRuns();refreshScreen();updateRunsUI(true);
 }
 /* While paused, the time can be given to the interval instead: it gets that much
-   longer, and the time counts as trained, so you come back to as much as was left. */
+   longer, and the time counts as trained, so you come back to as much as was left.
+   The saved routine keeps the new length too, so the next run has it. */
 function pauseAddable(r){
   const root=rootOf(r);
   if(!root?.w||root.done||root.pausedAt==null||isHeld(root)||kidOf(root))return null;
@@ -5172,11 +5173,21 @@ function addPause(r){
   const a=pauseAddable(r);if(!a)return;
   const {root,p}=a,ms=pausedFor(root);
   if(ms<1000)return;
-  if(!p.open)root.w.intervals[p.idx].duration+=ms/1000;
+  if(!p.open){
+    const add=ms/1000,first=root.w.intervals[lapIdx(root.w,p.idx)];
+    root.w.intervals[p.idx].duration+=add;
+    if(first!==root.w.intervals[p.idx])first.duration+=add;   // laps still to come copy the first
+    // The routine itself, and the editor's copy if it is open on it.
+    for(const w of [S.workouts.find(x=>x.id===root.wid),E?.w?.id===root.wid?E.w:null]){
+      const it=w?.intervals.find(x=>x.id===first.id);
+      if(it&&!it.sub)it.duration=Math.round((it.duration+add)*10)/10;
+    }
+    if(E?.w?.id===root.wid)renderEditor();
+  }
   root.anchor-=ms;root.active+=ms;root.pauseFrom=Date.now();
   persistRuns();
   if(runVisible()){showInterval(focusRun());drawRunner(true)}
-  haptic(20);toast(`Added ${fmtS(ms/1000)} to ${root.w.intervals[p.idx].title||'this interval'}`);
+  haptic(20);toast(`Added ${fmtS(ms/1000)} to ${root.w.intervals[p.idx].title||'this interval'}${p.open?'':', and saved it to the routine'}`);
 }
 function setPaused(r,p){
   if(isKid(r))return setPaused(parentOf(r),p);
