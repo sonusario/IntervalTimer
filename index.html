@@ -991,7 +991,7 @@ body.watching #sheet{z-index:70}
       <div class="rnext" id="rNext"></div>
       <div class="logpick hidden" id="rLog"></div>
     </div>
-    <div class="rpause hidden" id="rPause" role="group" aria-label="Paused time"><div class="pbtns" id="rPauseBtns"><button data-pause="last">+ Add to last interval</button><button data-pause="new">+ Add as new interval</button><button data-pause="this">+ Add to this interval</button></div><div class="ptime"><small>Paused</small><span class="num" id="rPauseT">0:00</span></div></div>
+    <div class="rpause hidden" id="rPause" role="group" aria-label="Paused time"><div class="ptime"><small>Paused</small><span class="num" id="rPauseT">0:00</span></div><div class="pbtns" id="rPauseBtns"><button data-pause="last">+ Add to last interval</button><button data-pause="new">+ Add as new interval</button><button data-pause="this">+ Add to this interval</button></div></div>
   </div>
   <div class="rrail" id="rRail"></div>
   <div class="rctrl"><button id="rPrev" aria-label="Previous interval"></button><button id="rPlay" class="big"></button><button id="rSkip" aria-label="Next interval"></button></div>
@@ -3740,6 +3740,7 @@ function deleteWorkouts(ids){
    Add a line here with each merge. */
 const REPO_URL='https://github.com/sonusario/IntervalTimer',HUB_URL='https://sonusario.github.io/';
 const CHANGES=[
+  ['2026-10-24','Pause stopwatch moves to the left of its buttons, and all three always show'],
   ['2026-10-24','Paused time can go to the last interval, this one, or a new interval of its own'],
   ['2026-10-24','Endless intervals and routines, a pause stopwatch, and this About panel'],
   ['2026-10-22','Safer backup restore, faster sorting, sound sheets go back to their menu, update prompt only for newer builds'],
@@ -5877,9 +5878,13 @@ function drawPause(r){
   const ms=pausedFor(root);
   setT($('#rPauseT'),fmt(Math.floor(ms/1000)),'pt');
   const a=pauseAddable(r);
+  /* All three always show, so the chip keeps its shape: one that cannot apply here
+     (nothing before the first interval) is greyed out rather than gone. */
   for(const b of $$('#rPauseBtns button')){
-    b.classList.toggle('hidden',!a||(b.dataset.pause==='last'&&!a.last));
-    b.disabled=ms<1000;
+    const none=b.dataset.pause==='last'&&!a?.last;
+    b.classList.toggle('hidden',!a);
+    b.disabled=ms<1000||none;
+    b.title=none?'There is no interval before this one':'';
   }
 }
 /* ---------- Run chips, pill and tabs ---------- */
@@ -6137,7 +6142,7 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const APP_BUILD='5.7 (2026.10.24)';
+const APP_BUILD='5.8 (2026.10.24)';
 const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
