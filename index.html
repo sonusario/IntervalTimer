@@ -438,6 +438,10 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 .rpause button{padding:6px 10px;border-radius:999px;background:var(--s2);color:var(--tx);font-weight:600;font-size:12px;text-align:left}
 .niname{display:block;width:100%;margin:6px 0 4px;padding:12px 14px;border-radius:12px;border:0;background:var(--s2);color:var(--tx);font:inherit;font-size:16px}
 .rpause button:disabled{opacity:.5}
+/* The offer left by a skip, in the pause stopwatch's corner and style. */
+.rpause.rskipd{gap:2px}
+.rpause button.warn{color:var(--bad)}
+.rpause .pclose{align-self:flex-start;padding:2px 6px;background:none;color:var(--mu);font-size:16px;line-height:1}
 .rstage{position:relative;flex:1;min-height:0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:0 20px;overflow:hidden;container-type:size;--rw:min(78cqw,calc(66cqh - 82px),340px)}
 .rmedia{width:100%;max-width:520px;height:30vh;height:34cqh;flex:none;border-radius:20px;overflow:hidden;position:relative;background:#0d0f18}
 .rmedia:empty{display:none}
@@ -992,6 +996,7 @@ body.watching #sheet{z-index:70}
       <div class="logpick hidden" id="rLog"></div>
     </div>
     <div class="rpause hidden" id="rPause" role="group" aria-label="Paused time"><div class="ptime"><small>Paused</small><span class="num" id="rPauseT">0:00</span></div><div class="pbtns" id="rPauseBtns"><button data-pause="last">+ Add to last interval</button><button data-pause="new">+ Add as new interval</button><button data-pause="this">+ Add to this interval</button></div></div>
+    <div class="rpause rskipd hidden" id="rSkipped" role="group" aria-label="Skipped interval"><div class="ptime"><small>Skipped</small><span class="num" id="rSkippedT">0:00</span></div><div class="pbtns"><button data-skip="trim">− Trim off time left</button><button data-skip="del" class="warn">Delete skipped interval</button></div><button class="pclose" data-skip="x" aria-label="Dismiss">×</button></div>
   </div>
   <div class="rrail" id="rRail"></div>
   <div class="rctrl"><button id="rPrev" aria-label="Previous interval"></button><button id="rPlay" class="big"></button><button id="rSkip" aria-label="Next interval"></button></div>
@@ -3740,6 +3745,7 @@ function deleteWorkouts(ids){
    Add a line here with each merge. */
 const REPO_URL='https://github.com/sonusario/IntervalTimer',HUB_URL='https://sonusario.github.io/';
 const CHANGES=[
+  ['2026-10-27','Skipping an interval offers to trim its leftover time or delete it; the ring no longer freezes or leaves a half showing'],
   ['2026-10-24','Pause stopwatch moves to the left of its buttons, and all three always show'],
   ['2026-10-24','Paused time can go to the last interval, this one, or a new interval of its own'],
   ['2026-10-24','Endless intervals and routines, a pause stopwatch, and this About panel'],
@@ -5269,6 +5275,90 @@ function nameNew(root,made,add){
   inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#sheetBody [data-v="save"]').click()}};
   setTimeout(()=>inp.focus(),300);
 }
+/* ---------- After a skip ----------
+   Skipping an interval leaves an offer behind, like the pause stopwatch does: cut
+   the skipped interval down to the time it actually ran, or take it out of the
+   routine. Either way the saved routine keeps the change, and where you are now
+   stays put. The offer lasts until the interval skipped to is over. */
+function skipOf(r,p){
+  if(isKid(r)||p.open||p.done||p.seg.kind!=='int')return null;
+  const it=r.w.intervals[p.idx];
+  if(!it||it.sub||it.subW||p.seg.dur-p.el<1000)return null;
+  return{rid:r.id,id:it.id,left:p.seg.dur-p.el,done:p.el};
+}
+function skipInfo(r,live){
+  const s=RE.skip,root=r&&rootOf(r);
+  if(!s||!root||root.id!==s.rid||root.done||!root.w||kidOf(root))return null;
+  const w=root.w,i=w.intervals.findIndex(x=>x.id===s.id);
+  if(i<0)return null;
+  if(live){
+    // Gone back to it, or on past the interval after it: the moment has passed.
+    const p=posAt(w,elapsedOf(root)),at=p.done?Infinity:p.seg.kind==='int'?p.seg.idx:p.seg.k-.5;
+    if(at<=i||at>i+1)return null;
+  }
+  const srcId=srcOf(w,i),saved=savedCopies(root.wid);
+  return{s,root,w,i,it:w.intervals[i],srcId,saved,
+    canDel:saved.every(sw=>sw.intervals.length>1)&&(!w.loop||tplOf(w).length>1)};
+}
+function drawSkip(r){
+  // A pause has the corner to itself; the offer is still there once it goes on.
+  const box=$('#rSkipped'),paused=rootOf(r)?.pausedAt!=null,a=paused?null:skipInfo(r,true);
+  if(!a&&!paused&&RE.skip&&rootOf(r)?.id===RE.skip.rid)RE.skip=null;
+  box.classList.toggle('hidden',!a);
+  if(!a)return;
+  setT($('#rSkippedT'),fmt(Math.ceil(a.s.left/1000)),'sk');
+  const nm=a.it.title||`Interval ${lapIdx(a.w,a.i)+1}`;
+  if(RE.shown.skn!==nm){RE.shown.skn=nm;box.setAttribute('aria-label',`Skipped ${nm}`)}
+  const t=$('[data-skip="trim"]',box),d=$('[data-skip="del"]',box);
+  t.disabled=a.s.done<1000;t.title=t.disabled?'Less than a second of it ran':'';
+  d.disabled=!a.canDel;d.title=d.disabled?'It is the only interval in the routine':'';
+}
+function askDeleteSkipped(r){
+  const a=skipInfo(r,true);if(!a||!a.canDel)return;
+  const nm=esc(a.it.title||`Interval ${lapIdx(a.w,a.i)+1}`);
+  confirmSheet('Delete this interval?',
+    `<b>${nm}</b> comes out of this run and out of <b>${esc(workoutOf(a.root)?.name||'the routine')}</b> for good, so it will not be there next time either.`,
+    'Delete',()=>useSkip(r,'del'));
+}
+function useSkip(r,how){
+  const a=skipInfo(r,false);if(!a||(how==='del'&&!a.canDel)||(how==='trim'&&a.s.done<1000))return;
+  const {s,root,w,i,it,srcId,saved}=a,tpl=w.loop?tplOf(w):null;
+  const nm=it.title||`Interval ${lapIdx(w,i)+1}`;
+  /* Hold on to where you are by the interval after the skipped one: everything
+     from there on moves back by whatever comes out before it. */
+  const ref=w.intervals[i+1];
+  const place=()=>{const t=timeline(w),k=ref?t.segs.findIndex(x=>x.kind==='int'&&w.intervals[x.idx]===ref):t.segs.length;
+    return{st:k<t.segs.length?t.segs[k].start:t.total,gap:k>0&&t.segs[k-1].kind==='tr'?t.segs[k-1].dur:0}};
+  const was=place(),off=elapsedOf(root)-was.st,oldSi=posAt(w,elapsedOf(root)).si;
+  // Later laps not reached yet carry the same interval; they change along with it.
+  const later=w.loop?w.intervals.filter((x,j)=>j>i&&x.src===srcId):[];
+  if(how==='trim'){
+    const f=s.done/(s.done+s.left),cut=x=>{x.duration=Math.max(1,Math.round(x.duration*f*10)/10)};
+    for(const x of later)cut(x);
+    it.duration=Math.max(1,Math.round(s.done/100)/10);
+    const t=tpl?.find(x=>x.src===srcId);if(t)cut(t);
+    for(const sw of saved){const x=sw.intervals.find(y=>y.id===srcId);if(x&&!x.sub)cut(x)}
+  }else{
+    for(const x of [it,...later])w.intervals.splice(w.intervals.indexOf(x),1);
+    if(tpl){
+      const k=tpl.findIndex(x=>x.src===srcId);if(k>=0)tpl.splice(k,1);
+      tpl.forEach((x,j)=>x.li=j);
+      const laps=new Set([it,...later].map(x=>x.lapK));
+      for(const K of laps)w.intervals.filter(x=>x.lapK===K).forEach((x,j)=>x.li=j);
+    }
+    for(const sw of saved){const k=sw.intervals.findIndex(y=>y.id===srcId);if(k>=0)sw.intervals.splice(k,1)}
+  }
+  const now=place();
+  root.anchor=(root.pausedAt??Date.now())-(now.st+Math.max(off,-now.gap));
+  const q=posAt(w,elapsedOf(root));
+  root.lastSi=q.si;if(root.gateOk===oldSi)root.gateOk=q.si;
+  RE.skip=null;
+  persistRuns();
+  if(E?.w?.id===root.wid)renderEditor();
+  if(runVisible()){showInterval(focusRun());drawRunner(true)}
+  haptic(20);
+  toast(how==='trim'?`Trimmed ${nm} to ${fmtS(it.duration)}, and saved it to the routine`:`Deleted ${nm} from the routine`);
+}
 function setPaused(r,p){
   if(isKid(r))return setPaused(parentOf(r),p);
   if(!r||!r.w||!isLive(r))return;
@@ -5470,6 +5560,7 @@ function jumpRun(r,delta){
   if(delta<0&&p.el>2000)return seekSeg(r,p.si,0,false);
   // Next on an endless interval ends it at the time it took.
   if(delta>0&&p.open){const it=r.w.intervals[p.idx];it.duration=Math.max(1,p.el)/1000;it.shut=true}
+  RE.skip=delta>0?skipOf(r,p):null;
   const n=p.si+delta;
   if(!isKid(r)&&n>=timeline(r.w).segs.length&&r.w.loop)addLap(r.w);
   const tl=timeline(r.w);
@@ -5708,7 +5799,22 @@ function ringTime(e,paused){
 function pauseRing(on){
   // A frozen ring must not lose a half to a timer still counting toward its end.
   if(on){clearTimeout(RE.sL);clearTimeout(RE.sR);RE.sL=RE.sR=0}
-  for(const a of ringAnims()){if(on)a.pause();else a.play()}
+  /* play() on a finished animation rewinds it, and the left wedge is finished for
+     the whole second half: resuming there used to send it round again. Keeping its
+     time across the call leaves it where it was. */
+  for(const a of ringAnims()){if(on)a.pause();else{const t=a.currentTime;a.play();try{a.currentTime=t}catch(_){}}}
+}
+/* The timers in setRing are the quick way to hide a wedge; this is the sure one.
+   A timer can come late or not at all (a throttled tab, a phone that slept with the
+   app open, a seek that paused it), and a wedge left showing is the rounded end of a
+   half ring hanging about past halfway. So each tick checks the halves against the
+   clock, and once a second checks the sweep itself has not drifted off it. */
+function ringGuard(seg,el,paused){
+  const w=RE.arc;if(!w||!seg||!seg.dur||w.classList.contains('off'))return;
+  const e=Math.max(0,Math.min(el,seg.dur)),L=$('.rmask.l',w),R=$('.rmask.r',w);
+  if(L.classList.contains('spent')!==(e>=seg.dur/2)||R.classList.contains('spent')!==(e>=seg.dur))return setRing(seg,el,paused);
+  const now=Date.now();if(now-(RE.rchk||0)<1000)return;RE.rchk=now;
+  if(ringAnims().some(a=>Math.abs((a.currentTime??-1e9)-e)>300||(!paused&&a.playState==='paused')))setRing(seg,el,paused);
 }
 function showInterval(r){
   const w=workoutOf(r),box=$('#rMedia'),run=$('#run');
@@ -5803,7 +5909,7 @@ function setS(el,prop,v,k){if(RE.shown[k]!==v){RE.shown[k]=v;el.style[prop]=v}}
 function drawRunner(force){
   const r=focusRun();if(!r)return;
   if(force){RE.shown={};RE.tight=innerWidth<380}
-  drawPause(r);
+  drawPause(r);drawSkip(r);
   const w=workoutOf(r),now=Date.now(),T=total(w)*1000;
   if(r.done){
     if(RE.si!==-1)return renderRunner();
@@ -5829,6 +5935,7 @@ function drawRunner(force){
   // A jump inside the interval it is already showing leaves the segment the same,
   // so the sweep has to be re-armed explicitly: force is exactly "something moved".
   if(force&&!RE.seeking)setRing(p.seg,p.el,r.pausedAt!=null);
+  else if(!RE.seeking)ringGuard(p.seg,p.el,r.pausedAt!=null);
   const shownEl=RE.seeking?Math.min(d,+RE.range.value*1000):p.el;
   const rem=Math.max(0,d-shownEl);
   const tt=fmt(Math.ceil(rem/1000));
@@ -5851,7 +5958,7 @@ function drawRunner(force){
    and how long it has gone rather than how long is left. */
 function drawOpen(r,w,p,el,now){
   const d=p.seg.dur,up=p.open;
-  if(!up&&!RE.seeking&&RE.shown.ring!==p.si){RE.shown.ring=p.si;setRing(p.seg,p.el,r.pausedAt!=null)}
+  if(!up&&!RE.seeking){if(RE.shown.ring!==p.si){RE.shown.ring=p.si;setRing(p.seg,p.el,r.pausedAt!=null)}else ringGuard(p.seg,p.el,r.pausedAt!=null)}
   const shownEl=!up&&RE.seeking?Math.min(d,+RE.range.value*1000):p.el;
   const tt=fmt(up?Math.floor(shownEl/1000):Math.ceil(Math.max(0,d-shownEl)/1000));
   setT(RE.time,tt,'t');RE.time.classList.toggle('long',tt.length>5);
@@ -5982,6 +6089,13 @@ function bindRun(){
   $('#rMin').onclick=minimizeRunner;
   $('#rEnd').onclick=()=>{const r=focusRun();if(r)askEnd(r)};
   $('#rPauseBtns').onclick=e=>{const b=e.target.closest('[data-pause]'),r=focusRun();if(b&&r)usePause(r,b.dataset.pause)};
+  $('#rSkipped').onclick=e=>{
+    const b=e.target.closest('[data-skip]'),r=focusRun();if(!b||!r)return;
+    const k=b.dataset.skip;
+    if(k==='x'){RE.skip=null;drawSkip(r)}
+    else if(k==='del')askDeleteSkipped(r);
+    else useSkip(r,'trim');
+  };
   $('#rMute').onclick=()=>{
     const r=focusRun();if(!r)return;
     r.muted=!r.muted;
@@ -6012,6 +6126,10 @@ function bindRun(){
     else drawRunner(true);
   });
   rg.addEventListener('blur',()=>{RE.seeking=false;drawRunner(true)});
+  /* A touch that lets go where it started sends no change, and on a phone the
+     slider keeps focus, so nothing would ever restart the ring it paused. */
+  const letGoSeek=()=>setTimeout(()=>{if(RE.seeking){RE.seeking=false;drawRunner(true)}},0);
+  for(const t of['pointerup','pointercancel','touchend','keyup'])rg.addEventListener(t,letGoSeek);
   $('#miniRun').onclick=()=>{const r=pillRun();if(r)openRunner(r.id)};
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden){stopBeat();heartbeat();return}
@@ -6142,7 +6260,7 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const APP_BUILD='5.8 (2026.10.24)';
+const APP_BUILD='5.9 (2026.10.27)';
 const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
