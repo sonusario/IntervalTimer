@@ -454,7 +454,7 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
    It drains: whole at the start of an interval, gone at the end. It is drawn by
    rotation rather than by a changing arc length, and that is the whole point. A
    growing stroke-dashoffset has to be recalculated and repainted on every frame
-   — sixty style recalculations a second for the length of a workout, whether or
+   — sixty style recalculations a second for the length of a routine, whether or
    not anyone is looking. A rotation is handed to the compositor once and costs
    the main thread nothing after that.
 
@@ -1677,7 +1677,7 @@ const anyLive=()=>runs.some(r=>r.w&&!r.done&&!r.pausedAt&&!isWaiting(r));
 /* ---------- the clock's own pulse ----------
    Ten times a second while something is actually running — that is what puts a
    beep on the right tenth of a second — and once a second when nothing is, so
-   the app sitting open on the dashboard no longer costs what one mid-workout
+   the app sitting open on the dashboard no longer costs what one mid-routine
    does. Anything that changes what is running asks for a look straight away
    rather than waiting out the slow cadence: a subroutine takes its parent's
    pause from the next tick, and a second of that is a second too many. */
@@ -2681,7 +2681,7 @@ function deleteFolderSheet(f){
     <p>It holds ${[n.w.length?plural(n.w.length,'routine'):'',n.f.length?plural(n.f.length,'folder'):''].filter(Boolean).join(' and ')}.</p>
     <div class="menu">
       <button data-v="keep">${ui('move')}<span class="sl">Delete the folder only<small>Everything in it moves ${where}</small></span></button>
-      <button data-v="all" class="red">${ui('trash')}<span class="sl">Delete it and everything in it<small>Past training stays in your history</small></span></button>
+      <button data-v="all" class="red">${ui('trash')}<span class="sl">Delete it and everything in it<small>Past time stays in your history</small></span></button>
     </div>
     <div class="dialfoot"><button class="btn" data-v="no">Cancel</button></div>`,v=>{
     if(v==='keep'){
@@ -2718,7 +2718,7 @@ function routineMenu(w,from){
     }
     else if(v==='edit')openEditor(w.id,from);
     else if(v==='del')setTimeout(()=>confirmSheet(`Delete \u201c${esc(w.name)}\u201d?`,
-      'The routine and its media are removed. Its past training moves to the archive in Settings.','Delete routine',()=>{
+      'The routine and its media are removed. Its past time moves to the archive in Settings.','Delete routine',()=>{
         deleteWorkouts([w.id]);
         if(screen==='detail')closeDetail();else renderDash();
         toast('Routine deleted');
@@ -3063,7 +3063,7 @@ function drawChart(o){
   const maxU=maxS/div,step=niceStep(maxU/3),top=Math.ceil(maxU/step)*step;
   const ml=34,mr=showAvg?40:4,mt=8,mb=22,cw=W-ml-mr,ch=H-mt-mb,bw=cw/N,barW=Math.min(26,bw*.62);
   const Y=v=>mt+ch-(Math.max(0,Math.min(v,top))/top)*ch;
-  let s=`<svg width="${W}" height="${H}" role="img" aria-label="Stacked bar chart of training time">`;
+  let s=`<svg width="${W}" height="${H}" role="img" aria-label="Stacked bar chart of time spent">`;
   for(let v=0;v<=top+1e-9;v+=step){
     const y=Y(v);
     s+=`<line class="grid" x1="${ml}" x2="${W-mr}" y1="${y}" y2="${y}"/><text class="yl" x="${ml-6}" y="${y+4}" text-anchor="end">${+v.toFixed(1)}${unit}</text>`;
@@ -3108,7 +3108,7 @@ function drawChart(o){
     const i=+r.dataset.i,b=B[i],sel=el.querySelector('.sel');
     sel.setAttribute('x',ml+i*bw);sel.setAttribute('opacity','1');
     const n=Object.keys(b.by).filter(id=>!hid.has(id)).length;
-    o.info.textContent=b.sum?`${b.long}: ${fmt(b.sum)} across ${plural(n,'routine')}`:`${b.long}: no training`;
+    o.info.textContent=b.sum?`${b.long}: ${fmt(b.sum)} across ${plural(n,'routine')}`:`${b.long}: nothing logged`;
     // In edit mode a bar is a way in to the sessions behind it; otherwise it just reads.
     if(o.editing&&o.scope&&b.sum)sessionsSheet({scope:o.scope,bucket:{k:b.k,long:b.long,range:o.range}});
   };
@@ -3144,7 +3144,7 @@ function renderArchiveChart(){
     toggle:id=>{if(id==='__avg')S.ui.avgA=!S.ui.avgA;else toggleHidden(S.ui.hideA,id);save();renderArchiveChart()},
     label:u=>`${u==='h'?'Hours':'Minutes'} per ${per}`,
     lookup:id=>{const e=S.archive.findLast(x=>x.workoutId===id);return{c:e?.c||'#5b6180',n:e?.n||'Deleted routine'}},
-    empty:()=>`<div class="cempty"><div>${S.archive.length?'Nothing archived in this period.':'When you delete a routine, its training moves here.'}</div></div>`});
+    empty:()=>`<div class="cempty"><div>${S.archive.length?'Nothing archived in this period.':'When you delete a routine, its logged time moves here.'}</div></div>`});
   $$('#archRng button').forEach(b=>b.classList.toggle('on',b.dataset.a===S.ui.arch));
   markEditBtn($('[data-set="archEdit"]'),S.ui.archEdit);
 }
@@ -3410,7 +3410,7 @@ function renderSettings(){
       ${sw('wake','Keep the screen on',s.wake)}
     </section>
     <section class="sgroup"><h5>Archive</h5>
-      <p class="snote">Training from deleted routines moves here, out of the main chart.</p>
+      <p class="snote">Time from deleted routines moves here, out of the main chart.</p>
       <div class="archead"><div class="cinfo num" id="archInfo"></div><div class="rng" id="archRng"><button data-a="d30">30D</button><button data-a="w12">12W</button><button data-a="m12">12M</button></div></div>
       <div class="chart archive" id="archChart"></div>
       <div class="avgrow hidden" id="archAvgRow"></div>
@@ -3484,7 +3484,7 @@ function settingAction(k,el){
   if(k==='archList')return sessionsSheet({scope:'archive'});
   if(k==='delArchive')return confirmSheet('Delete archive data?',`Removes ${plural(S.archive.length,'archived session')} from deleted routines. This can’t be undone.`,'Delete archive',()=>{S.archive=[];save();renderSettings();toast('Archive deleted')});
   if(k==='delHistory')return confirmSheet('Delete all routine history?',`Clears ${plural(S.history.length,'session')} from the main chart. Routines and the archive stay. This can’t be undone.`,'Delete history',()=>{S.history=[];save();renderSettings();toast('History deleted')});
-  if(k==='delWorkouts')return confirmSheet('Delete all routines?',`Removes ${plural(S.workouts.length,'routine')} and their media. Their training moves to the archive, and scheduled starts are cancelled. Routines already running finish normally.`,'Delete routines',()=>{deleteWorkouts(S.workouts.map(w=>w.id));renderSettings();toast('All routines deleted')});
+  if(k==='delWorkouts')return confirmSheet('Delete all routines?',`Removes ${plural(S.workouts.length,'routine')} and their media. Their logged time moves to the archive, and scheduled starts are cancelled. Routines already running finish normally.`,'Delete routines',()=>{deleteWorkouts(S.workouts.map(w=>w.id));renderSettings();toast('All routines deleted')});
   if(k==='install')return installSheet();
   if(k==='about')return aboutSheet();
   if(k==='export')return exportBackup();
@@ -3745,6 +3745,7 @@ function deleteWorkouts(ids){
    Add a line here with each merge. */
 const REPO_URL='https://github.com/sonusario/IntervalTimer',HUB_URL='https://sonusario.github.io/';
 const CHANGES=[
+  ['2026-10-28','Finished runs and charts say time spent instead of the old workout-style “trained” wording'],
   ['2026-10-27','Skipping an interval offers to trim its leftover time or delete it; the ring no longer freezes or leaves a half showing'],
   ['2026-10-24','Pause stopwatch moves to the left of its buttons, and all three always show'],
   ['2026-10-24','Paused time can go to the last interval, this one, or a new interval of its own'],
@@ -4515,7 +4516,7 @@ function bindEditor(){
   $('#eTrans').onclick=()=>transSheet();
   $('#eWatch').onclick=openWatch;
   $('#eDel').onclick=()=>{
-    confirmSheet(`Delete “${esc(E.w.name)}”?`,'The routine and its media are removed. Its past training moves to the archive in Settings.','Delete routine',()=>{
+    confirmSheet(`Delete “${esc(E.w.name)}”?`,'The routine and its media are removed. Its past time moves to the archive in Settings.','Delete routine',()=>{
       stopPreview();
       const w=E.w,keys=[...keysOf(w),...E.trash];
       E=null;
@@ -5177,7 +5178,7 @@ function askEnd(r){
     const lap=lapNo(r.w,posAt(r.w,elapsedOf(r)).idx);
     return confirmSheet('Complete routine?',`Lap ${lap}, ${fmt(sec)} in. ${sec>=5?'That time will be added to your chart.':'Less than 5 seconds in, so nothing will be logged.'}`,'Complete',()=>completeRun(r),'Keep going');
   }
-  confirmSheet('End routine?',sec>=5?`You’ve trained ${fmt(sec)}. That time will be added to your chart.`:'Less than 5 seconds in, so nothing will be logged.','End routine',()=>endRun(r),'Keep going');
+  confirmSheet('End routine?',sec>=5?`${fmt(sec)} so far. That time will be added to your chart.`:'Less than 5 seconds in, so nothing will be logged.','End routine',()=>endRun(r),'Keep going');
 }
 /* A looping routine has no end of its own: completing it finishes it where it is. */
 function completeRun(r){
@@ -5190,7 +5191,7 @@ function completeRun(r){
 }
 /* While paused, the time can be given to the routine instead of lost: added to the
    interval on now, to the one before it, or made into an interval of its own just
-   before this one. Either way it counts as trained, you come back to as much of this
+   before this one. Either way it counts as time spent, you come back to as much of this
    interval as was left, and the saved routine keeps the change for next time. */
 function pauseAddable(r){
   const root=rootOf(r);
@@ -5412,7 +5413,7 @@ function restartSeg(r){
   haptic(20);
   toast('Interval restarted');
 }
-/* Back to the very beginning. Time already trained stays counted. */
+/* Back to the very beginning. Time already spent stays counted. */
 function restartRun(r){
   if(isKid(r)){
     const p=parentOf(r);
@@ -5914,7 +5915,7 @@ function drawRunner(force){
   if(r.done){
     if(RE.si!==-1)return renderRunner();
     setT(RE.time,'Done','t');RE.time.classList.remove('long');
-    setT(RE.left,`${fmt(r.active/1000)} trained`,'l');
+    setT(RE.left,`${fmt(r.active/1000)} spent`,'l');
     if(RE.fill)setS(RE.fill,'transform','scaleX(1)','f');
     return;
   }
@@ -6260,7 +6261,7 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const APP_BUILD='5.9 (2026.10.27)';
+const APP_BUILD='5.10 (2026.10.28)';
 const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
