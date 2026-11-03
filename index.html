@@ -128,6 +128,8 @@ input{font:inherit;color:inherit}
 .menu.seslist .ses:disabled{opacity:1}
 .menu.sublist .sl,.menu.seslist .sl{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .menu.sublist .sl small,.menu.seslist .sl small{display:block;color:var(--mu);font-weight:500;font-size:12px;margin-top:2px}
+.menu.picklist .sl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.menu.picklist .sl small{display:block;color:var(--mu);font-weight:500;font-size:12px;margin-top:2px}
 .menu.sublist .dot,.menu.seslist .dot{width:10px;height:10px;border-radius:50%;flex:none}
 .prev.red{color:var(--bad)}
 .linkb{color:var(--ac);text-decoration:underline;text-underline-offset:2px;font:inherit}
@@ -2706,6 +2708,7 @@ function routineMenu(w,from){
   openSheet(`<h4>${esc(w.name)}</h4><div class="menu">
     <button data-v="move">${ui('move')}<span class="sl">Move to a folder\u2026</span><span class="val">${esc(fin)}</span></button>
     <button data-v="dup">${ui('copy')}Duplicate</button>
+    <button data-v="export">${ui('download')}Export\u2026</button>
     <button data-v="edit">${ui('edit')}Edit</button>
     <button data-v="del" class="red">${ui('trash')}Delete routine</button>
   </div>`,v=>{
@@ -2716,6 +2719,7 @@ function routineMenu(w,from){
       S.workouts.splice(S.workouts.indexOf(w)+1,0,copy);
       save();renderDash();toast('Duplicated');
     }
+    else if(v==='export')setTimeout(()=>exportRoutinesSheet(w.id),0);
     else if(v==='edit')openEditor(w.id,from);
     else if(v==='del')setTimeout(()=>confirmSheet(`Delete \u201c${esc(w.name)}\u201d?`,
       'The routine and its media are removed. Its past time moves to the archive in Settings.','Delete routine',()=>{
@@ -3423,6 +3427,8 @@ function renderSettings(){
       ${row('delHistory','trash','Delete all routine history',plural(S.history.length,'session'),'red',!S.history.length)}
       ${row('delWorkouts','trash','Delete all routines',plural(S.workouts.length,'routine'),'red',!S.workouts.length)}
       ${sw('shrinkVid','Shrink videos when adding',s.shrinkVid,'Smaller files, a little softer; sound is dropped either way')}
+      ${row('exportR','download','Export routines','Pick which')}
+      ${row('importR','upload','Import routines','Adds, never replaces')}
       ${row('export','download','Save a backup file','')}
       ${row('import','upload','Restore from a backup','')}
       ${PWA.update?`<button class="srow upd" data-set="reload">${ui('flip')}<span class="sl">New version ready<small>Reload to use it</small></span><span class="val">Reload</span></button>`
@@ -3489,6 +3495,8 @@ function settingAction(k,el){
   if(k==='about')return aboutSheet();
   if(k==='export')return exportBackup();
   if(k==='import')return importBackup();
+  if(k==='exportR')return exportRoutinesSheet();
+  if(k==='importR')return importRoutines();
 }
 /* ---------- Transitions ---------- */
 const stepSec=(v,d)=>Math.max(0,Math.min(900,v+d*(d>0?(v<20?1:v<60?5:15):(v<=20?1:v<=60?5:15))));
@@ -3745,6 +3753,7 @@ function deleteWorkouts(ids){
    Add a line here with each merge. */
 const REPO_URL='https://github.com/sonusario/IntervalTimer',HUB_URL='https://sonusario.github.io/';
 const CHANGES=[
+  ['2026-11-03','Export chosen routines to a file and import them on another device (media stays behind)'],
   ['2026-10-28','Finished runs and charts say time spent instead of the old workout-style “trained” wording'],
   ['2026-10-27','Skipping an interval offers to trim its leftover time or delete it; the ring no longer freezes or leaves a half showing'],
   ['2026-10-24','Pause stopwatch moves to the left of its buttons, and all three always show'],
@@ -3806,6 +3815,133 @@ async function restoreBackup(data){
   setDrawer(S.ui.drawer,false);
   if(screen==='settings')renderSettings();else{navHome();show('dash');renderDash()}
   toast(`Restored ${plural(S.workouts.length,'routine')}`);
+}
+
+
+/* ---------- Sharing routines ----------
+   A routines file carries chosen routines (and any they use as subroutines) but
+   none of the media kept on this device: pictures and videos behind intervals,
+   recorded or picked sounds. Built-in, spoken and synth sounds travel, as do
+   small inline icons. Importing always adds copies with fresh IDs, so a file can
+   be imported twice, or on the device it came from, without touching anything. */
+const ROUTINES_FILE=1;
+/* The routines `ids` lean on as subroutines, all the way down, from `pool`. */
+function withSubs(ids,pool){
+  const by=new Map(pool.map(w=>[w.id,w])),out=[],seen=new Set();
+  const add=(id,d)=>{
+    if(seen.has(id)||d>SUB_DEPTH)return;const w=by.get(id);if(!w)return;
+    seen.add(id);out.push(w);
+    for(const it of w.intervals)if(it.sub?.id)add(it.sub.id,d+1);
+  };
+  ids.forEach(id=>add(id,0));
+  return out;
+}
+const stripCue=c=>c&&typeof c==='object'&&c.kind!=='media'&&!c.key?c:{kind:'none'};
+/* A copy with every device-stored file taken out. Reports whether anything was. */
+function shareable(w){
+  const c=JSON.parse(JSON.stringify(w));let lost=false;
+  const cues=o=>{if(!o||typeof o!=='object')return;for(const k of Object.keys(o)){const n=stripCue(o[k]);if(n!==o[k]){lost=lost||o[k]?.kind==='media'||!!o[k]?.key;o[k]=n}}};
+  cues(c.cues);
+  for(const it of c.intervals||[]){
+    if(it.media){lost=true;it.media=null}
+    if(it.audio&&(it.audio.key||it.audio.kind==='media')){lost=true;it.audio=null}
+    cues(it.cues);delete it.subW;
+  }
+  delete c.folder;
+  return {w:c,lost};
+}
+/* Tick the routines to send. Subroutines come along on their own. */
+function exportRoutinesSheet(pre){
+  if(!S.workouts.length)return toast('There are no routines to export');
+  const on=new Set(pre?[pre]:[]);
+  const list=[...S.workouts].sort((a,b)=>a.name.localeCompare(b.name));
+  const draw=()=>{
+    const subs=withSubs([...on],S.workouts).filter(w=>!on.has(w.id));
+    openSheet(`<h4>Export routines</h4>
+      <p class="small">Saves the ticked routines to a file you can import on another device. Pictures, videos and recorded sounds stay on this device; built-in, spoken and synth sounds go along.</p>
+      <div class="menu picklist">
+        <button data-keep="all" class="swrow" role="switch" aria-checked="${on.size===list.length}">${ui('list')}All routines<span class="switch"></span></button>
+        ${list.map(w=>`<button data-keep="r:${esc(w.id)}" class="swrow" role="switch" aria-checked="${on.has(w.id)}"><span class="dot" style="background:${esc(w.color)};width:10px;height:10px;border-radius:50%;flex:none"></span><span class="sl">${esc(w.name)}<small>${plural(w.intervals.length,'interval')}</small></span><span class="switch"></span></button>`).join('')}
+      </div>
+      ${subs.length?`<p class="small">Also included as subroutines: ${subs.map(w=>esc(w.name)).join(', ')}.</p>`:''}
+      <div class="dialfoot"><button class="btn" data-v="no">Cancel</button><button class="btn pri" data-v="go" ${on.size?'':'disabled'}>Export ${on.size?plural(on.size+subs.length,'routine'):''}</button></div>`,
+    v=>{if(v==='go')exportRoutines([...on])},
+    {onKeep:k=>{
+      if(k==='all'){if(on.size===list.length)on.clear();else list.forEach(w=>on.add(w.id))}
+      else{const id=k.slice(2);on.has(id)?on.delete(id):on.add(id)}
+      const sc=$('.sheetin').scrollTop;draw();$('.sheetin').scrollTop=sc;
+    }});
+  };
+  draw();
+}
+function exportRoutines(ids){
+  const all=withSubs(ids,S.workouts);
+  if(!all.length)return;
+  let lost=false;
+  const routines=all.map(w=>{const r=shareable(w);lost=lost||r.lost;return r.w});
+  const data={app:'interval',kind:'routines',version:ROUTINES_FILE,exported:new Date().toISOString(),picked:ids,routines};
+  const name=all.length===1?all[0].name.replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-').slice(0,40)||'routine':`${all.length}-routines`;
+  const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,1)],{type:'application/json'}));
+  const a=document.createElement('a');a.href=url;a.download=`interval-${name}-${dayKey(Date.now())}.json`;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
+  toast(`Exported ${plural(all.length,'routine')}${lost?' without device media':''}`);
+}
+/* Routines from a routines file, or from a full backup (whose media is ignored). */
+function routinesInFile(data){
+  if(data?.app!=='interval')return null;
+  if(data.kind==='routines'&&Array.isArray(data.routines))return {list:data.routines,picked:Array.isArray(data.picked)?data.picked:null,from:'file'};
+  if(data.state&&Array.isArray(data.state.workouts))return {list:data.state.workouts,picked:null,from:'backup'};
+  return null;
+}
+function importRoutines(){
+  pickFile('application/json,.json',async f=>{
+    let data=null;
+    try{data=JSON.parse(await readText(f))}catch(e){}
+    const got=routinesInFile(data);
+    if(!got)return toast('That file has no Interval routines');
+    const pool=got.list.filter(w=>w&&typeof w==='object'&&Array.isArray(w.intervals)).map(w=>normRoutine(shareable(w).w));
+    if(!pool.length)return toast('That file has no routines in it');
+    const ids=new Set(pool.map(w=>w.id));
+    // Offer the routines that were picked, not the ones that only came along as subroutines.
+    let top=got.picked?pool.filter(w=>got.picked.map(safeId).includes(w.id)):pool;
+    if(!top.length)top=pool;
+    const on=new Set(top.map(w=>w.id));
+    const draw=()=>{
+      const subs=withSubs([...on],pool).filter(w=>!on.has(w.id));
+      openSheet(`<h4>Import routines</h4>
+        <p class="small">${got.from==='backup'?'From a backup file. Only routines are added; nothing on this device is replaced, and media is left out.':'They are added as new routines next to yours. Nothing on this device is replaced.'}</p>
+        <div class="menu picklist">
+          ${top.map(w=>`<button data-keep="r:${esc(w.id)}" class="swrow" role="switch" aria-checked="${on.has(w.id)}"><span class="dot" style="background:${esc(w.color)};width:10px;height:10px;border-radius:50%;flex:none"></span><span class="sl">${esc(w.name)}<small>${plural(w.intervals.length,'interval')}</small></span><span class="switch"></span></button>`).join('')}
+        </div>
+        ${subs.length?`<p class="small">Also added as subroutines: ${subs.map(w=>esc(w.name)).join(', ')}.</p>`:''}
+        <div class="dialfoot"><button class="btn" data-v="no">Cancel</button><button class="btn pri" data-v="go" ${on.size?'':'disabled'}>Import ${on.size?plural(on.size+subs.length,'routine'):''}</button></div>`,
+      v=>{if(v==='go')addImported(withSubs([...on],pool),ids)},
+      {onKeep:k=>{const id=k.slice(2);on.has(id)?on.delete(id):on.add(id);const sc=$('.sheetin').scrollTop;draw();$('.sheetin').scrollTop=sc}});
+    };
+    draw();
+  });
+}
+/* Fresh IDs throughout; subroutine links follow their routine to its new ID. */
+function addImported(list,fileIds){
+  const map=new Map(list.map(w=>[w.id,uid()])),at=atNow(),now=Date.now();
+  const taken=new Set(S.workouts.map(w=>w.name));
+  const added=list.map((w,i)=>{
+    const c=normRoutine({...structuredClone(w),id:map.get(w.id),created:now+i,folder:at});
+    if(taken.has(c.name))c.name+=' (imported)';
+    for(const it of c.intervals){
+      it.id=uid();
+      if(it.sub){
+        if(map.has(it.sub.id))it.sub.id=map.get(it.sub.id);
+        // A subroutine that wasn't in the file: keep the step only if this device has that routine.
+        else if(!S.workouts.some(x=>x.id===it.sub.id)||fileIds.has(it.sub.id))delete it.sub;
+      }
+    }
+    return c;
+  });
+  S.workouts.push(...added);save();
+  if(screen==='settings')renderSettings();else renderDash();
+  toast(`Imported ${plural(added.length,'routine')}`);
 }
 
 /* ================= Editor ================= */
@@ -6261,7 +6397,7 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const APP_BUILD='5.10 (2026.10.28)';
+const APP_BUILD='5.11 (2026.11.03)';
 const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
