@@ -224,6 +224,17 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 .tin:focus{border-color:var(--c)}
 .inum{font-family:var(--disp);color:var(--mu);font-size:18px;font-weight:600}
 .more{width:40px;height:40px;flex:none;border-radius:10px;display:grid;place-items:center;color:var(--mu)}
+/* Variants: a small add button by the number, and once there are two or more a row
+   of chips under the name, the chosen one lit. */
+.vadd{width:32px;height:40px;flex:none;border-radius:10px;display:grid;place-items:center;color:var(--mu);margin-right:-6px}
+.vrow{display:flex;gap:6px;margin-top:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:1px}
+.vrow::-webkit-scrollbar{display:none}
+.vchip{flex:none;display:inline-flex;align-items:center;gap:6px;max-width:70%;padding:6px 12px;border-radius:999px;background:var(--s2);color:var(--mu);font-size:13px;font-weight:600}
+.vchip b{font-family:var(--disp);font-weight:600;opacity:.75}
+.vchip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vchip.on{background:var(--c);color:var(--ci,#15131f)}
+.vchip.plus{padding:6px 10px;border:1.5px dashed var(--line);background:transparent}
+.icard.art .vrow{position:relative;z-index:1}
 .ibody{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-top:10px;align-items:start}
 .media{position:relative;width:100%;aspect-ratio:16/9;max-height:34vh;border-radius:12px;background:var(--s2);border:1.5px dashed var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--mu);font-size:12px;overflow:hidden}
 .media.has{border:0;background:#0d0f18}
@@ -598,6 +609,10 @@ button.srow:active{background:var(--s2)}
 .rseek input{flex:1;min-width:40px;accent-color:var(--c);margin:0}
 .rseek .num{font-size:12px;color:var(--mu);min-width:32px;text-align:center}
 .rseek.off input,.rseek.off .num{visibility:hidden}
+.rvar{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.08);color:var(--tx);font-size:13px;font-weight:600;flex:none}
+.rvar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rvar .icon{color:var(--c);flex:none}
+.rvar .icon.chevd{color:var(--mu)}
 .rsync{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.08);display:grid;place-items:center;flex:none}
 .rail.tap .seg{cursor:pointer}
 #run.waiting .rarc{opacity:.3}
@@ -749,6 +764,15 @@ body.watching #sheet{z-index:70}
 .wlist{width:100%;max-width:420px;flex:1;min-height:0;overflow-y:auto;margin-top:10px;display:flex;flex-direction:column;gap:6px}
 .wrow{flex:none;display:flex;justify-content:space-between;gap:10px;background:var(--s1);border-radius:12px;padding:10px 14px;font-weight:600}
 .whint{color:var(--mu);font-size:13px;text-align:center;padding:10px;line-height:1.4}
+.wrow{align-items:center;padding:4px 14px 4px 6px}
+.wrow b{flex:none}
+.wrow .wpen{flex:none;color:var(--mu);opacity:.6;margin-left:6px}
+.wrow:focus-within .wpen{color:var(--c);opacity:1}
+.wrow.now{background:transparent;border:1.5px dashed var(--line)}
+.wrow.now b{color:var(--mu);font-weight:500;font-size:13px}
+.wname{flex:1;min-width:0;background:transparent;border:0;border-bottom:2px solid transparent;color:var(--tx);font:inherit;font-weight:600;padding:8px;outline:none}
+.wname::placeholder{color:var(--mu);font-weight:500}
+.wname:focus{border-color:var(--c)}
 .wctrl{flex:none;display:flex;gap:10px;padding:10px 14px calc(14px + var(--sb))}
 .wctrl .btn{flex:1;padding:16px 8px;justify-content:center}
 .wctrl .btn.pri{flex:1.4}
@@ -994,6 +1018,7 @@ body.watching #sheet{z-index:70}
         <button class="rsync" id="rAgain" aria-label="Restart this interval"></button>
         <button class="rsync" id="rSync" aria-label="Sync to a clock time"></button>
       </div>
+      <button class="rvar hidden" id="rVar"></button>
       <div class="rnext" id="rNext"></div>
       <div class="logpick hidden" id="rLog"></div>
     </div>
@@ -1276,6 +1301,7 @@ const UI={plus:'M12 5v14M5 12h14',edit:'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',back:'
   restart:'M3 12a9 9 0 1 0 2.7-6.4M3 4v5h5',tostart:'M21 5l-9 7 9 7zM12 5l-9 7 9 7z',right:'M9 5l7 7-7 7',
   hand:'M9 11.5V5.2a1.6 1.6 0 0 1 3.2 0V11m0-1.4a1.6 1.6 0 0 1 3.2 0V12m0-1.2a1.6 1.6 0 0 1 3.2 0V15a6 6 0 0 1-6 6h-1a6 6 0 0 1-5-2.7l-2.2-3.2a1.7 1.7 0 0 1 2.6-2.1L9 15',
   list:'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01',
+  layers:'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5',varadd:'M11 3.5L3 8l8 4.5L19 8zM3 13l8 4.5 3.2-1.8M18.5 13.5v7M15 17h7',
   sub:'M21 12a9 9 0 1 1-2.6-6.4M21 3v4h-4M12 9v6M9 12h6',
   inf:'M7 9a3 3 0 1 0 0 6c2 0 3-1.5 5-3s3-3 5-3a3 3 0 1 1 0 6c-2 0-3-1.5-5-3s-3-3-5-3z',
   info:'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18M12 11v6M12 7.5h.01',ext:'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6'};
@@ -1515,35 +1541,108 @@ function subLoops(hostId,candId,depth=0){
   if(depth>=SUB_DEPTH)return true;
   const w=S.workouts.find(x=>x.id===candId);
   if(!w)return false;
-  return w.intervals.some(it=>it.sub&&subLoops(hostId,it.sub.id,depth+1));
+  return w.intervals.some(it=>varSubs(it).some(x=>subLoops(hostId,x.id,depth+1)));
+}
+const NEW_FIELDS=()=>({id:uid(),title:'',icon:null,iconImg:null,duration:30,mode:'s',media:null,audio:null,cues:{}});
+const SLOT_KEYS=new Set(['id','vars','vi','pre','post','hold','subW','src','lapK','li','endless','shut','nom']);
+const secsOK=x=>typeof x==='number'&&isFinite(x)&&x>=0;
+/* What one interval (or one of its variants) is made of, cleaned up. */
+function normFields(it){
+  it.iconImg=safeImg(it.iconImg);
+  if(!it.open||it.sub)delete it.open;else it.open=true;
+  delete it.subW;
+  if(it.sub&&typeof it.sub==='object'&&safeId(it.sub.id))it.sub={id:safeId(it.sub.id),name:String(it.sub.name||''),color:safeColor(it.sub.color,null)};
+  else delete it.sub;
+  return it;
 }
 function normRoutine(w){
   w.id=safeId(w.id)||uid();w.name=String(w.name||'Routine');w.color=safeColor(w.color,PALETTE[0]);
   w.created=+w.created||0;w.cues=w.cues&&typeof w.cues==='object'?w.cues:{};
   w.folder=safeId(w.folder);
-  w.intervals=(Array.isArray(w.intervals)?w.intervals:[]).map(it=>({id:uid(),title:'',icon:null,iconImg:null,duration:30,mode:'s',media:null,audio:null,cues:{},...it,hold:!!it.hold}));
-  const secs=x=>typeof x==='number'&&isFinite(x)&&x>=0;
-  if(!secs(w.trans))delete w.trans;
+  w.intervals=(Array.isArray(w.intervals)?w.intervals:[]).map(it=>({...NEW_FIELDS(),...it,hold:!!it.hold}));
+  if(!secsOK(w.trans))delete w.trans;
   if(!/^#[0-9a-f]{6}$/i.test(w.color2||''))delete w.color2;
   if(!w.loop)delete w.loop;else w.loop=true;
   delete w.lapN;delete w.lapTpl;
   w.intervals.forEach(it=>{
-    it.id=safeId(it.id)||uid();it.iconImg=safeImg(it.iconImg);
-    if(!it.open||it.sub)delete it.open;else it.open=true;
+    it.id=safeId(it.id)||uid();
+    normFields(it);
     delete it.endless;delete it.shut;delete it.nom;delete it.src;delete it.lapK;delete it.li;
-    if(!secs(it.pre))delete it.pre;
-    if(!secs(it.post))delete it.post;
-    delete it.subW;
-    if(it.sub&&typeof it.sub==='object'&&safeId(it.sub.id))it.sub={id:safeId(it.sub.id),name:String(it.sub.name||''),color:safeColor(it.sub.color,null)};
-    else delete it.sub;
+    if(!secsOK(it.pre))delete it.pre;
+    if(!secsOK(it.post))delete it.post;
+    normVars(it);
   });
   return w;
 }
 
+/* ---------- Variants ----------
+   An interval can have other versions of itself, say an easier and a harder form of
+   the same exercise. The one picked is the interval as it has always been: its own
+   fields are the chosen variant's, so the timeline, runs, sounds and old saves all
+   work on it unchanged. The rest wait in `vars`, in order, with the chosen one's
+   place held by null and its number in `vi`. The first variant is the original.
+   Where it sits (its transitions, waiting for a tap) belongs to the slot, not to
+   any one variant. */
+const varN=it=>Array.isArray(it?.vars)&&it.vars.length>1?it.vars.length:1;
+const varI=it=>varN(it)>1?it.vi||0:0;
+/* The chosen variant, as a stand-alone copy. */
+function varOwn(it){
+  const o={};
+  for(const k of Object.keys(it))if(!SLOT_KEYS.has(k))o[k]=structuredClone(it[k]);
+  return o;
+}
+const varAt=(it,k)=>k===varI(it)?it:it.vars[k];
+const varKeys=v=>v?[v.media?.key,v.audio?.key,v.cues?.start?.key,v.cues?.end?.key]:[];
+const varName=(it,k)=>varAt(it,k)?.title||`Variant ${k+1}`;
+function normVars(it){
+  if(!Array.isArray(it.vars)||it.vars.length<2){delete it.vars;delete it.vi;return}
+  const vi=Number.isInteger(it.vi)&&it.vi>=0&&it.vi<it.vars.length?it.vi:0;
+  const out=[];let at=0;
+  it.vars.forEach((v,k)=>{
+    if(k===vi){at=out.length;out.push(null);return}
+    if(!v||typeof v!=='object'||Array.isArray(v))return;
+    const c={...NEW_FIELDS(),...v};
+    for(const x of SLOT_KEYS)delete c[x];
+    if(!(typeof c.duration==='number'&&c.duration>0))c.duration=30;
+    out.push(normFields(c));
+  });
+  if(out.length<2){delete it.vars;delete it.vi;return}
+  it.vars=out;it.vi=at;
+}
+/* Make variant k the one that plays. */
+function pickVar(it,k){
+  const cur=varI(it);
+  if(varN(it)<2||k===cur||!it.vars[k])return false;
+  it.vars[cur]=varOwn(it);
+  for(const x of Object.keys(it))if(!SLOT_KEYS.has(x))delete it[x];
+  Object.assign(it,structuredClone(it.vars[k]));
+  it.vars[k]=null;it.vi=k;
+  return true;
+}
+/* A new variant starts as a copy of the one showing, and is picked straight away. */
+function addVar(it){
+  if(varN(it)<2){it.vars=[null];it.vi=0}
+  const c=varOwn(it),n=it.vars.length+1;
+  c.title=`${(it.title||'').replace(/\s+\d+$/,'')||'Variant'} ${n}`;
+  it.vars.push(c);
+  pickVar(it,it.vars.length-1);
+}
+/* Drop variant k. The keys of whatever only it used are returned for release. */
+function dropVar(it,k){
+  if(varN(it)<2)return [];
+  if(k===varI(it))pickVar(it,k>0?k-1:1);
+  const [gone]=it.vars.splice(k,1);
+  if(it.vi>k)it.vi--;
+  if(it.vars.length<2){delete it.vars;delete it.vi}
+  return varKeys(gone);
+}
+/* Every variant's own sub-routine link, the chosen one's included. */
+const varSubs=it=>[it.sub,...(it.vars||[]).map(v=>v?.sub)].filter(x=>x?.id);
+
 /* ---------- Media bookkeeping ---------- */
 const busy=new Set(),busyMsg=new Map();
 const keysOf=(w,depth=0)=>[w.cues?.start?.key,w.cues?.end?.key,w.cues?.done?.key,w.cues?.tstart?.key,w.cues?.tend?.key,
-  ...w.intervals.flatMap(i=>[i.media?.key,i.audio?.key,i.cues?.start?.key,i.cues?.end?.key,
+  ...w.intervals.flatMap(i=>[i.media?.key,i.audio?.key,i.cues?.start?.key,i.cues?.end?.key,...(i.vars||[]).flatMap(varKeys),
     ...(i.subW&&depth<SUB_DEPTH?keysOf(i.subW,depth+1):[])])].filter(Boolean);
 function mediaInUse(key){
   const all=[...S.workouts.filter(w=>!E||w.id!==E.w.id),...(E?[E.w]:[]),...runs.map(r=>r.w).filter(Boolean)];
@@ -3753,6 +3852,7 @@ function deleteWorkouts(ids){
    Add a line here with each merge. */
 const REPO_URL='https://github.com/sonusario/IntervalTimer',HUB_URL='https://sonusario.github.io/';
 const CHANGES=[
+  ['2026-11-09','Variants for any interval (say, harder progressions of an exercise), picked while editing or running; name stopwatch laps as you go'],
   ['2026-11-03','Export chosen routines to a file and import them on another device (media stays behind)'],
   ['2026-10-28','Finished runs and charts say time spent instead of the old workout-style “trained” wording'],
   ['2026-10-27','Skipping an interval offers to trim its leftover time or delete it; the ring no longer freezes or leaves a half showing'],
@@ -3831,7 +3931,7 @@ function withSubs(ids,pool){
   const add=(id,d)=>{
     if(seen.has(id)||d>SUB_DEPTH)return;const w=by.get(id);if(!w)return;
     seen.add(id);out.push(w);
-    for(const it of w.intervals)if(it.sub?.id)add(it.sub.id,d+1);
+    for(const it of w.intervals)for(const x of varSubs(it))add(x.id,d+1);
   };
   ids.forEach(id=>add(id,0));
   return out;
@@ -3842,11 +3942,13 @@ function shareable(w){
   const c=JSON.parse(JSON.stringify(w));let lost=false;
   const cues=o=>{if(!o||typeof o!=='object')return;for(const k of Object.keys(o)){const n=stripCue(o[k]);if(n!==o[k]){lost=lost||o[k]?.kind==='media'||!!o[k]?.key;o[k]=n}}};
   cues(c.cues);
-  for(const it of c.intervals||[]){
+  const strip=it=>{
+    if(!it||typeof it!=='object')return;
     if(it.media){lost=true;it.media=null}
     if(it.audio&&(it.audio.key||it.audio.kind==='media')){lost=true;it.audio=null}
     cues(it.cues);delete it.subW;
-  }
+  };
+  for(const it of c.intervals||[]){strip(it);if(Array.isArray(it.vars))it.vars.forEach(strip)}
   delete c.folder;
   return {w:c,lost};
 }
@@ -3929,13 +4031,14 @@ function addImported(list,fileIds){
   const added=list.map((w,i)=>{
     const c=normRoutine({...structuredClone(w),id:map.get(w.id),created:now+i,folder:at});
     if(taken.has(c.name))c.name+=' (imported)';
+    const relink=it=>{
+      if(!it?.sub)return;
+      if(map.has(it.sub.id))it.sub.id=map.get(it.sub.id);
+      // A subroutine that wasn't in the file: keep the step only if this device has that routine.
+      else if(!S.workouts.some(x=>x.id===it.sub.id)||fileIds.has(it.sub.id))delete it.sub;
+    };
     for(const it of c.intervals){
-      it.id=uid();
-      if(it.sub){
-        if(map.has(it.sub.id))it.sub.id=map.get(it.sub.id);
-        // A subroutine that wasn't in the file: keep the step only if this device has that routine.
-        else if(!S.workouts.some(x=>x.id===it.sub.id)||fileIds.has(it.sub.id))delete it.sub;
-      }
+      it.id=uid();relink(it);(it.vars||[]).forEach(relink);
     }
     return c;
   });
@@ -4013,8 +4116,9 @@ function renderEditor(){
         <button class="iconpick ${it.icon||it.iconImg?'set':''}" data-act="icon" aria-label="Choose icon">${it.icon||it.iconImg?iconFor(it):ui('plus')}</button>
         <input class="tin" data-act="title" value="${esc(it.title)}" placeholder="Interval name" enterkeyhint="done" aria-label="Interval ${i+1} name">
 ${it.hold?`<span class="hflag" title="Waits for a tap before it starts" aria-label="Waits for a tap before it starts">${ui('hand','icon sm')}</span>`:''}${it.open&&!it.sub?`<span class="hflag oflag" title="Keeps going until you tap next" aria-label="Keeps going until you tap next">${ui('inf','icon sm')}</span>`:''}<span class="inum num">${i+1}</span>
+        ${varN(it)>1?'':`<button class="vadd" data-act="addvar" aria-label="Add a variant of this interval" title="Add a variant">${ui('varadd','icon sm')}</button>`}
         <button class="more" data-act="more" aria-label="Interval options">${ui('more')}</button>
-      </div>
+      </div>${varRow(it,i)}
       <div class="ibody">
         <div>
           <button class="media ${it.media?'has':''} ${busy.has(it.id+':m')?'busy':''}" data-act="media" aria-label="${it.media?'Image or video options':'Add image or video'}">
@@ -4032,6 +4136,13 @@ ${it.hold?`<span class="hflag" title="Waits for a tap before it starts" aria-lab
       <div class="cues">${cueBtn(it,'start')}${cueBtn(it,'end')}</div>
     </section>${gapBtn(i+1)}`).join('');
   fillMedia(keep);
+}
+function varRow(it,i){
+  const n=varN(it);if(n<2)return '';
+  const cur=varI(it);
+  return `<div class="vrow" role="radiogroup" aria-label="Variants of interval ${i+1}">${Array.from({length:n},(_,k)=>
+    `<button class="vchip ${k===cur?'on':''}" data-act="var" data-k="${k}" role="radio" aria-checked="${k===cur}"><b>${k+1}</b><span>${esc(varName(it,k))}</span></button>`).join('')
+  }<button class="vchip plus" data-act="addvar" aria-label="Add a variant">${ui('plus','icon sm')}</button></div>`;
 }
 async function fillMedia(keep=new Map()){
   await Promise.all($$('#ilist .icard').map(async card=>{
@@ -4542,12 +4653,12 @@ async function iconFromMedia(it){
 
 /* ================= Stopwatch =================
    Lap cuts an interval at that moment; Stop closes the one still running. */
-const WT={on:false,start:0,acc:0,paused:true,mark:0,laps:[],raf:0};
+const WT={on:false,start:0,acc:0,paused:true,mark:0,laps:[],names:[],raf:0};
 const wElapsed=()=>WT.paused?WT.acc:WT.acc+(Date.now()-WT.start);
 const watchFmt=ms=>{const t=Math.max(0,ms)/1000;return `${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}.${Math.floor((t%1)*10)}`};
 function openWatch(){
   if(!E)return;
-  Object.assign(WT,{on:true,start:0,acc:0,paused:true,mark:0,laps:[]});
+  Object.assign(WT,{on:true,start:0,acc:0,paused:true,mark:0,laps:[],names:[]});
   $('#watch').classList.remove('hidden');
   document.body.classList.add('watching');
   navOpen('watch',()=>closeWatch(false));
@@ -4566,10 +4677,19 @@ function renderWatch(){
   $('#wGo').innerHTML=running?`${ui('pause','icon sm')}Pause`:`${ui('play','icon sm fill')}${WT.acc?'Resume':'Start'}`;
   $('#wLapBtn').disabled=!running;
   $('#wStop').disabled=WT.paused&&!WT.acc;
-  const L=$('#wList');
-  L.innerHTML=WT.laps.length?WT.laps.map((ms,i)=>`<div class="wrow"><span>Interval ${i+1}</span><b class="num">${fmt(Math.max(1,Math.round(ms/1000)))}</b></div>`).join('')
-    :`<div class="whint">Start the stopwatch and tap Lap each time an interval ends. Stop closes the last one and adds them all.</div>`;
-  L.scrollTop=L.scrollHeight;
+  /* Every lap can be named, the one still running too, so the last interval (which
+     Stop closes) gets its name before the stopwatch goes away. */
+  const L=$('#wList'),started=running||WT.acc>0,n=WT.laps.length+(started?1:0);
+  const f=document.activeElement,fi=f?.classList?.contains('wname')?+f.dataset.i:-1,sel=fi>=0?[f.selectionStart,f.selectionEnd]:null;
+  const row=i=>{
+    const done=i<WT.laps.length;
+    return `<div class="wrow ${done?'':'now'}">${ui('pen','icon sm wpen')}<input class="wname" data-i="${i}" value="${esc(WT.names[i]||'')}" placeholder="Interval ${i+1}" maxlength="60" enterkeyhint="done" aria-label="Name of interval ${i+1}"><b class="num">${done?fmt(Math.max(1,Math.round(WT.laps[i]/1000))):'now'}</b></div>`;
+  };
+  const stick=L.scrollTop+L.clientHeight>=L.scrollHeight-8;
+  L.innerHTML=n?Array.from({length:n},(_,i)=>row(i)).join('')
+    :`<div class="whint">Start the stopwatch and tap Lap each time an interval ends. Stop closes the last one and adds them all. Tap a lap to name it.</div>`;
+  if(fi>=0&&fi<n){const g=L.querySelector(`.wname[data-i="${fi}"]`);g.focus({preventScroll:true});try{g.setSelectionRange(...sel)}catch(e){}}
+  else if(stick)L.scrollTop=L.scrollHeight;
 }
 function watchGo(){
   if(WT.paused){WT.start=Date.now();WT.paused=false}
@@ -4587,12 +4707,13 @@ function watchStop(){
   if(!WT.paused){WT.acc=e;WT.paused=true}
   if(e-WT.mark>=300)WT.laps.push(e-WT.mark);
   const laps=WT.laps.filter(ms=>ms>=300);
+  const names=WT.laps.map((ms,i)=>ms>=300?String(WT.names[i]||'').trim():null).filter(x=>x!=null);
   closeWatch(true);
   if(!E||!laps.length)return;
-  for(const ms of laps){
+  laps.forEach((ms,i)=>{
     const d=Math.max(1,Math.round(ms/1000));
-    E.w.intervals.push({id:uid(),title:'',icon:null,iconImg:null,duration:d,mode:d>=60?'m':'s',media:null,audio:null,cues:{}});
-  }
+    E.w.intervals.push({id:uid(),title:names[i]||'',icon:null,iconImg:null,duration:d,mode:d>=60?'m':'s',media:null,audio:null,cues:{}});
+  });
   renderEditor();revealNewCard();
   toast(`Added ${plural(laps.length,'interval')}`);
 }
@@ -4602,7 +4723,7 @@ function closeWatch(force){
     return;
   }
   navDone('watch');
-  WT.on=false;cancelAnimationFrame(WT.raf);WT.laps=[];
+  WT.on=false;cancelAnimationFrame(WT.raf);WT.laps=[];WT.names=[];
   $('#watch').classList.add('hidden');
   document.body.classList.remove('watching');
 }
@@ -4611,7 +4732,11 @@ function bindWatch(){
   $('#wClose').onclick=()=>closeWatch();
   $('#wGo').onclick=watchGo;
   $('#wLapBtn').onclick=watchLap;
+  // Lapping keeps the keyboard up, so a name can be typed while the laps go by.
+  $('#wLapBtn').addEventListener('pointerdown',e=>{if(document.activeElement?.classList.contains('wname'))e.preventDefault()});
   $('#wStop').onclick=watchStop;
+  $('#wList').addEventListener('input',e=>{if(e.target.classList.contains('wname'))WT.names[+e.target.dataset.i]=e.target.value});
+  $('#wList').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.classList.contains('wname'))e.target.blur()});
 }
 /* Pick another routine to run in place of this interval. Its length becomes the
    interval's, so the two can never fall out of step. */
@@ -4642,6 +4767,32 @@ function subSheet(i){
     toast(`${w.name} runs here · ${fmt(total(w))}`);
   });
 }
+/* Media still being saved lands on whichever variant is showing, so wait for it. */
+const varBusy=it=>busy.has(it.id+':m')||busy.has(it.id+':a')?(toast('Wait for the media to finish saving'),true):false;
+function focusTitle(i){
+  const inp=$(`#ilist .icard[data-i="${i}"] .tin`);if(!inp)return;
+  inp.focus({preventScroll:true});inp.select();
+}
+/* Variants of one interval: which plays, and a way to drop or reorder them. */
+function varSheet(i){
+  const it=E.w.intervals[i];if(!it||varN(it)<2)return;
+  const cur=varI(it),n=varN(it);
+  openSheet(`<h4>Variants of \u201c${esc(it.title||`Interval ${i+1}`)}\u201d</h4>
+    <p class="small">The chosen variant is what plays, and it stays chosen until you pick another, here or while the routine runs.</p>
+    <div class="menu">
+      <button data-v="first" ${cur===0?'disabled':''}>${ui('up')}Make this the first variant</button>
+      <button data-v="drop" class="red">${ui('trash')}Delete variant ${cur+1}<span class="val">${esc(varName(it,cur))}</span></button>
+    </div>
+    <p class="small">${plural(n,'variant')}. Add more with the + next to the chips.</p>`,v=>{
+    if(v==='first'&&cur>0){it.vars.splice(cur,1);it.vars.unshift(null);it.vi=0;renderEditor();toast('Now the first variant')}
+    if(v==='drop'){
+      stopPreview();
+      const name=varName(it,cur);
+      releaseMedia(dropVar(it,cur));renderEditor();
+      toast(`Deleted ${name}`);
+    }
+  });
+}
 function bindEditor(){
   sideDraggable($('#editFab'),$('#editor'),'editFab',addInterval);
   $('#eBack').onclick=closeEditor;
@@ -4668,7 +4819,9 @@ function bindEditor(){
   });
   list.addEventListener('input',e=>{
     if(e.target.dataset.act!=='title')return;
-    E.w.intervals[+e.target.closest('.icard').dataset.i].title=e.target.value;
+    const card=e.target.closest('.icard'),it=E.w.intervals[+card.dataset.i];
+    it.title=e.target.value;
+    const chip=card.querySelector('.vchip.on span');if(chip)chip.textContent=varName(it,varI(it));
   });
   list.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset.act==='title')e.target.blur()});
   list.addEventListener('click',e=>{
@@ -4688,6 +4841,8 @@ function bindEditor(){
         else openDial(i,t);
         break;
       case 'sub':subSheet(i);break;
+      case 'var':if(varBusy(it))break;stopPreview();if(pickVar(it,+t.dataset.k)){renderEditor();buzz()}break;
+      case 'addvar':if(varBusy(it))break;stopPreview();addVar(it);renderEditor();buzz();focusTitle(i);toast('Variant added: change anything on it, the original stays as it was');break;
       case 'cue':cueSheet({scope:'interval',w:E.w,it,which:t.dataset.w});break;
       case 'more':{
         const n=E.w.intervals.length;
@@ -4697,6 +4852,8 @@ function bindEditor(){
           <button data-keep="hold" class="swrow ${it.hold?'on':''}" role="switch" aria-checked="${!!it.hold}">${ui('hand')}Wait for a tap to start<span class="switch"></span></button>
           ${it.sub?'':`<button data-keep="open" class="swrow ${it.open?'on':''}" role="switch" aria-checked="${!!it.open}">${ui('inf')}Keep going until I tap next<span class="switch"></span></button>`}
           ${it.media?.type==='video'||it.audio?`<button data-v="fitdur">${ui('watch')}Match duration to ${it.media?.type==='video'?'video':'audio'}</button>`:''}
+          <button data-v="addvar">${ui('varadd')}Add a variant<span class="val">${varN(it)>1?`${varI(it)+1} of ${varN(it)}`:'e.g. a harder version'}</span></button>
+          ${varN(it)>1?`<button data-v="vars">${ui('layers')}Variant ${varI(it)+1} options<span class="val">first, delete</span></button>`:''}
           <button data-v="dup">${ui('copy')}Duplicate<span class="val">1 or more</span></button>
           <button data-v="up" ${i===0?'disabled':''}>${ui('up')}Move up</button>
           <button data-v="down" ${i===n-1?'disabled':''}>${ui('down')}Move down</button>
@@ -4707,9 +4864,11 @@ function bindEditor(){
           if(v==='callouts'){setTimeout(()=>calloutSheet('interval',E.w,it),0);return}
 
           if(v==='dup'){setTimeout(()=>dupSheet(i),0);return}
+          if(v==='vars'){setTimeout(()=>varSheet(i),0);return}
+          if(v==='addvar'){if(varBusy(it))return;stopPreview();addVar(it);renderEditor();focusTitle(i);return}
           if(v==='up'&&i>0)[L[i-1],L[i]]=[L[i],L[i-1]];
           if(v==='down'&&i<n-1)[L[i+1],L[i]]=[L[i],L[i+1]];
-          if(v==='del'){stopPreview();L.splice(i,1);releaseMedia([it.media?.key,it.audio?.key,it.cues?.start?.key,it.cues?.end?.key])}
+          if(v==='del'){stopPreview();L.splice(i,1);releaseMedia([...varKeys(it),...(it.vars||[]).flatMap(varKeys)])}
           renderEditor();
         },{onKeep:(k,el)=>{
           if(k!=='hold'&&k!=='open')return;
@@ -5966,6 +6125,7 @@ function showInterval(r){
       :`${r.logged?'Added to your chart':r.skip==='nolog'?'This routine isn\u2019t charted':'Too short for your chart'}\nStart again below`;
     $('#rNext').classList.add('wrap');
     showLogPick(r);
+    showVarPill(null);
     $('#rRail').innerHTML=railHTML(w,wait?null:w.intervals.length);markOverflow($('#rRail'));
     box.replaceChildren();RE.mkey='';RE.vdur=0;run.classList.add('nomedia');railGeo();
     setRing(null,0,false);
@@ -5990,6 +6150,7 @@ function showInterval(r){
     $('#rNext').textContent=p.open?`Keeps going until you tap next${nx?` \u00b7 then ${nxt}`:''}`
       :nx?`Next: ${nxt}${g?`, after ${fmtS(g)}`:''}`:(g?`Then ${fmtS(g)} to finish`:'Last interval');
   }
+  showVarPill(out?null:{r,idx:p.idx,next:tr});
   $('#rRail').innerHTML=railHTML(w,p.idx,true);markOverflow($('#rRail'));
   const media=out?null:it.media;
   run.classList.toggle('nomedia',!media);
@@ -6017,6 +6178,62 @@ function showInterval(r){
     }
   }else syncVideo(r,true);
   setRing(p.open?null:seg,p.el,r.pausedAt!=null);
+}
+/* ---------- Variants while running ----------
+   The interval on now (or coming up, during a transition) can be switched to another
+   of its variants. The routine keeps the choice for next time, and the run is rebuilt
+   from it straight away, staying where it is. */
+function runVarTarget(t){
+  if(!t?.r?.w)return null;
+  const {r,idx}=t,it=r.w.intervals[idx];if(!it)return null;
+  const iid=isKid(r)?it.id:srcOf(r.w,idx);
+  const saved=S.workouts.find(x=>x.id===r.wid)?.intervals.find(x=>x.id===iid)||null;
+  const v=saved||it;
+  return varN(v)>1?{r,idx,iid,v}:null;
+}
+function showVarPill(t){
+  const b=$('#rVar'),g=runVarTarget(t);
+  RE.var=g?t:null;
+  b.classList.toggle('hidden',!g);
+  if(!g)return;
+  const k=varI(g.v),n=varN(g.v);
+  b.innerHTML=`${ui('layers','icon sm')}<span>${t.next?'Next: ':''}Variant ${k+1} of ${n}</span>${ui('chev','icon xs chevd')}`;
+  b.setAttribute('aria-label',`${t.next?'Next interval':'This interval'}: variant ${k+1} of ${n}, ${varName(g.v,k)}. Tap to choose another`);
+}
+function runVarSheet(){
+  const g=runVarTarget(RE.var);if(!g)return;
+  const cur=varI(g.v),n=varN(g.v);
+  openSheet(`<h4>${RE.var.next?'Next interval':'This interval'}: choose a variant</h4>
+    <p class="small">Your pick is saved to the routine and comes up again next time.</p>
+    <div class="menu">${Array.from({length:n},(_,k)=>{const x=varAt(g.v,k);
+      return `<button data-v="${k}" class="${k===cur?'on':''}" ${k===cur?'aria-current="true"':''}><span class="num" style="width:22px;text-align:center;color:var(--mu)">${k+1}</span>${esc(varName(g.v,k))}<span class="val">${x.sub?esc(subName(x)):x.open?'until you tap next':fmt(durOf(x))}${k===cur?' \u2713':''}</span></button>`}).join('')}</div>`,
+  v=>{if(v!=null&&v!=='no')setRunVar(g,+v)});
+}
+function setRunVar(g,k){
+  if(k===varI(g.v))return;
+  const {r,iid}=g,name=varName(g.v,k);
+  let hit=false;
+  for(const sw of savedCopies(r.wid)){const x=sw.intervals.find(y=>y.id===iid);if(x&&pickVar(x,k))hit=true}
+  if(!hit){
+    // The routine is gone; the choice still holds for this run.
+    pickVar(r.w.intervals[g.idx],k);
+  }
+  save();
+  if(E?.w?.id===r.wid)renderEditor();
+  const root=rootOf(r);
+  if(hit){
+    focusId=root.id;
+    rebuildTree(root);
+    // Other runs of the same routine pick it up at the end of their current interval.
+    for(const x of runs)if(x!==root&&!isKid(x)&&x.w&&!x.done&&(x.wid===r.wid||usesRoutine(x.w,r.wid)))x.stale=true;
+  }
+  tickRuns();
+  for(const x of treeOf(root))restartTrack(x);
+  persistRuns();
+  if(runVisible()){renderRunner()}
+  refreshScreen();
+  haptic(20);
+  toast(hit?`${name}, saved for next time`:`${name} for this run`);
 }
 /* Video follows the interval's clock. When the clip is shorter than the interval it
    loops, so the right frame is elapsed modulo the clip's length. */
@@ -6223,6 +6440,7 @@ function bindRun(){
   $('#rRestart').innerHTML=ui('tostart');
   $('#rRestart').onclick=()=>{const r=focusRun();if(r)restartRun(r)};
   $('#rAgain').onclick=()=>{const r=focusRun();if(r)restartSeg(r)};
+  $('#rVar').onclick=runVarSheet;
   $('#rMin').onclick=minimizeRunner;
   $('#rEnd').onclick=()=>{const r=focusRun();if(r)askEnd(r)};
   $('#rPauseBtns').onclick=e=>{const b=e.target.closest('[data-pause]'),r=focusRun();if(b&&r)usePause(r,b.dataset.pause)};
@@ -6397,7 +6615,7 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const APP_BUILD='5.11 (2026.11.03)';
+const APP_BUILD='5.12 (2026.11.09)';
 const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
