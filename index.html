@@ -6615,7 +6615,7 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const APP_BUILD='5.12 (2026.11.09)';
+const APP_BUILD='5.13 (2026.11.11)';
 const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
@@ -6745,8 +6745,9 @@ async function store(c,key,res){
 self.addEventListener('install',()=>self.skipWaiting());
 self.addEventListener('activate',e=>e.waitUntil((async()=>{
   // Drop caches from older versions of this worker so nothing lingers on disk.
+  // Only ours: every app on sonusario.github.io shares one Cache Storage.
   const names=await caches.keys();
-  await Promise.all(names.filter(n=>n!==C).map(n=>caches.delete(n)));
+  await Promise.all(names.filter(n=>n.startsWith('interval-')&&n!==C).map(n=>caches.delete(n)));
   await self.clients.claim();
 })()));
 self.addEventListener('fetch',e=>{
@@ -6827,7 +6828,7 @@ function setupPWA(){
   try{
     const base=location.href.split('#')[0];
     const man={name:'Interval',short_name:'Interval',description:'Interval routine timer',
-      start_url:base,scope:base.replace(/[^/]*$/,''),id:base,
+      start_url:base,scope:base.replace(/[^/]*$/,''),id:new URL('./',base).href,
       display:'standalone',display_override:['standalone','minimal-ui'],orientation:'any',
       background_color:'#1A1D2E',theme_color:'#1A1D2E',
       icons:[{src:ICON192,sizes:'192x192',type:'image/png',purpose:'any'},

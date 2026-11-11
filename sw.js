@@ -14,8 +14,9 @@ async function store(c,key,res){
 self.addEventListener('install',()=>self.skipWaiting());
 self.addEventListener('activate',e=>e.waitUntil((async()=>{
   // Drop caches from older versions of this worker so nothing lingers on disk.
+  // Only ours: every app on sonusario.github.io shares one Cache Storage.
   const names=await caches.keys();
-  await Promise.all(names.filter(n=>n!==C).map(n=>caches.delete(n)));
+  await Promise.all(names.filter(n=>n.startsWith('interval-')&&n!==C).map(n=>caches.delete(n)));
   await self.clients.claim();
 })()));
 self.addEventListener('fetch',e=>{
