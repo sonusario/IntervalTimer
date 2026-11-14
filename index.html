@@ -62,6 +62,7 @@ input{font:inherit;color:inherit}
 .wcard .rail{grid-area:rail}
 .wdur{font-family:var(--disp);font-size:40px;font-weight:700;line-height:1}
 .wdur small{font-size:18px;color:var(--mu);margin-left:2px}
+.wdur.long{font-size:32px}
 .wsub{color:var(--mu);font-size:13px;line-height:1.3;min-width:0}
 .editbtn{grid-area:edit;justify-self:center;width:40px;height:40px;border-radius:12px;background:var(--s2);display:grid;place-items:center}
 .playbtn{grid-area:play;justify-self:center;width:44px;height:44px;border-radius:50%;background:var(--c);color:var(--ci,#15131f);display:grid;place-items:center}
@@ -458,6 +459,17 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 .rstage{position:relative;flex:1;min-height:0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:0 20px;overflow:hidden;container-type:size;--rw:min(78cqw,calc(66cqh - 82px),340px)}
 .rmedia{width:100%;max-width:520px;height:30vh;height:34cqh;flex:none;border-radius:20px;overflow:hidden;position:relative;background:#0d0f18}
 .rmedia:empty{display:none}
+.rtext{width:100%;max-width:520px;flex:0 1 auto;min-height:44px;max-height:30cqh;overflow-y:auto;overscroll-behavior:contain;padding:10px 14px;border-radius:16px;background:var(--s1);border:1px solid var(--line);color:var(--tx);font-size:15px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere;position:relative;z-index:1;box-sizing:border-box}
+.rtext.hidden{display:none}
+#run.hastext:not(.nomedia) .rmedia{height:24cqh}
+#run.hastext:not(.nomedia) .rtext{max-height:18cqh}
+#run.hastext .rstage{--rw:min(78cqw,calc(62cqh - 82px),340px)}
+#run.hastext:not(.nomedia) .rstage{--rw:min(78cqw,calc(54cqh - 82px),320px)}
+#run.trans .rtext{opacity:.6}
+.itext{position:relative;width:100%;margin-top:6px;min-height:32px;border-radius:10px;background:var(--s2);display:flex;align-items:center;gap:6px;padding:0 10px;color:var(--mu);font-size:12px;text-align:left}
+.itext .tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.itext.has{color:var(--tx)}
+.tarea{width:100%;box-sizing:border-box;margin:8px 0 4px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--s2);color:var(--tx);font:inherit;font-size:15px;line-height:1.45;resize:vertical;min-height:140px}
 .rcore{flex:none;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;width:min(100%,max(var(--rw),210px))}
 .ring{position:relative;flex:none;aspect-ratio:1;container-type:inline-size;width:var(--rw)}
 #run.nomedia .rstage{--rw:min(78cqw,calc(100cqh - 82px),360px)}
@@ -896,6 +908,10 @@ body.watching #sheet{z-index:70}
   .rmedia{height:auto;align-self:stretch;flex:1 1 0;min-width:0;max-width:none;margin:6px 0}
   .rstage{--rw:min(46cqw,calc(100cqh - 78px),340px)}
   #run.nomedia .rstage{--rw:min(78cqw,calc(100cqh - 78px),340px)}
+  .rtext,#run.hastext:not(.nomedia) .rtext{align-self:center;flex:1 1 0;min-width:0;max-width:none;max-height:calc(100cqh - 12px)}
+  #run.hastext:not(.nomedia) .rmedia{height:auto}
+  #run.hastext .rstage{--rw:min(46cqw,calc(100cqh - 78px),340px)}
+  #run.hastext:not(.nomedia) .rstage{--rw:min(34cqw,calc(100cqh - 78px),300px)}
   .rrail{grid-area:rail;padding:0 18px 8px}
   .rrail .rail{margin-top:0}
   .rctrl{grid-area:ctrl;flex-direction:column;justify-content:center;gap:12px;padding:0 20px 0 4px}
@@ -1006,6 +1022,7 @@ body.watching #sheet{z-index:70}
   <div class="rtabs hidden" id="rTabs" aria-label="Routines"></div>
   <div class="rstage">
     <div class="rmedia" id="rMedia"></div>
+    <div class="rtext hidden" id="rText" tabindex="0" aria-label="Interval description"></div>
     <div class="rcore">
       <div class="ring">
         <svg viewBox="0 0 200 200"><circle class="rtrack" cx="100" cy="100" r="90"/></svg><div class="rsweep" id="rSweep"><div class="rmask r"><div class="rspin"><svg viewBox="0 0 200 200"><circle class="rarc" cx="100" cy="100" r="90" transform="rotate(90 100 100)"/></svg></div></div><div class="rmask l"><div class="rspin"><svg viewBox="0 0 200 200"><circle class="rarc" cx="100" cy="100" r="90" transform="rotate(-90 100 100)"/></svg></div></div></div>
@@ -1098,6 +1115,8 @@ const subColor=it=>it.sub?(subLive(it)?.color||it.sub.color||null):null;
 const workTotal=w=>w.intervals.reduce((a,i)=>a+durOf(i),0);
 const transTotal=w=>Math.round(timeline(w).total/1000-workTotal(w));
 const fmtS=s=>s<60?`${Math.round(s)}s`:fmt(s);
+/* A routine's length reads as a clock time first; the plain seconds sit under it. */
+const secsTag=s=>`${Math.max(0,Math.round(s)).toLocaleString()} s`;
 const transOf=w=>w.trans??S.settings.trans??0;
 /* Transition before interval k; k === intervals.length means after the last one. Times
    set on either side add up, and the routine default fills in when neither is set. */
@@ -1280,7 +1299,7 @@ const UI={plus:'M12 5v14M5 12h14',edit:'M4 20h4L19 9l-4-4L4 16zM14 6l4 4',back:'
   camera:'M4 8h3l2-3h6l2 3h3v11H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z',
   video:'M3 7h12v10H3zM15 11l6-4v10l-6-4',upload:'M12 16V4M6 10l6-6 6 6M4 20h16',
   sound:'M4 9h4l5-4v14l-5-4H4zM17 9a4 4 0 0 1 0 6M19.5 6.5a8 8 0 0 1 0 11',
-  speak:'M4 5h16v11H10l-5 4v-4H4z',stop:'M6 6h12v12H6z',chev:'M6 9l6 6 6-6',
+  speak:'M4 5h16v11H10l-5 4v-4H4z',textdoc:'M5 3h10l4 4v14H5zM15 3v4h4M8 11h8M8 15h8M8 19h5',stop:'M6 6h12v12H6z',chev:'M6 9l6 6 6-6',
   flip:'M4 12a8 8 0 0 1 14-5.3L20 9M20 12a8 8 0 0 1-14 5.3L4 15M20 4v5h-5M4 20v-5h5',
   folder:'M3 7h6l2 2h10v10H3z', home:'M4 11l8-7 8 7M6 10v10h12V10',
   folderPlus:'M3 7h6l2 2h10v10H3zM12 12v5M9.5 14.5h5',
@@ -1547,8 +1566,10 @@ const NEW_FIELDS=()=>({id:uid(),title:'',icon:null,iconImg:null,duration:30,mode
 const SLOT_KEYS=new Set(['id','vars','vi','pre','post','hold','subW','src','lapK','li','endless','shut','nom']);
 const secsOK=x=>typeof x==='number'&&isFinite(x)&&x>=0;
 /* What one interval (or one of its variants) is made of, cleaned up. */
+const TEXT_MAX=4000;
 function normFields(it){
   it.iconImg=safeImg(it.iconImg);
+  if(typeof it.text==='string'&&it.text.trim())it.text=it.text.replace(/\r\n?/g,'\n').slice(0,TEXT_MAX);else delete it.text;
   if(!it.open||it.sub)delete it.open;else it.open=true;
   delete it.subW;
   if(it.sub&&typeof it.sub==='object'&&safeId(it.sub.id))it.sub={id:safeId(it.sub.id),name:String(it.sub.name||''),color:safeColor(it.sub.color,null)};
@@ -2656,8 +2677,8 @@ function renderCards(){
           <button class="editbtn" data-edit="${w.id}" aria-label="Edit ${esc(w.name)}">${ui('edit')}</button>
         </div>
         <div class="wmeta">
-          <span class="wdur num">${t}<small>s</small></span>
-          <span class="wsub num">${fmt(t)}<br>${sub}</span>
+          <span class="wdur num ${t>=3600?'long':''}">${fmt(t)}</span>
+          <span class="wsub num">${secsTag(t)}<br>${sub}</span>
         </div>
         <div class="pcol">
           <button class="playbtn" data-play="${w.id}" aria-label="${live?'Open':'Start'} ${esc(w.name)}" ${t?'':'disabled'}>${live?ui('up'):ui('play','icon fill')}</button>
@@ -2754,12 +2775,14 @@ function folderMenu(f){
       <button data-v="rename">${ui('edit')}Rename</button>
       <button data-v="move">${ui('move')}Move\u2026</button>
       <button data-v="color">${ui('flag')}Colour</button>
+      <button data-v="export">${ui('download')}Export\u2026<span class="val">with everything in it</span></button>
       <button data-v="del" class="red">${ui('trash')}Delete folder</button>
     </div>`,v=>{
     if(v==='open')goFolder(f.id);
     else if(v==='rename')setTimeout(()=>nameSheet(f,false),0);
     else if(v==='move')setTimeout(()=>moveSheet('folder',f),0);
     else if(v==='color')setTimeout(()=>folderColourSheet(f),0);
+    else if(v==='export')setTimeout(()=>exportRoutinesSheet(null,f.id),0);
     else if(v==='del')setTimeout(()=>deleteFolderSheet(f),0);
   });
 }
@@ -3278,7 +3301,7 @@ function renderDetail(){
   setTheme($('#detail'),w);
   $('#dName').textContent=w.name;
   const tr=transTotal(w);
-  $('#dStats').innerHTML=`<span class="wdur num">${t}<small>s</small></span><span class="wsub num">${fmt(t)} total<br>${plural(w.intervals.length,'interval')}${tr?` · ${fmtS(tr)} in transitions`:''}</span>`;
+  $('#dStats').innerHTML=`<span class="wdur num ${t>=3600?'long':''}">${fmt(t)}</span><span class="wsub num">${secsTag(t)} total<br>${plural(w.intervals.length,'interval')}${tr?` · ${fmtS(tr)} in transitions`:''}</span>`;
   const fin=w.folder?trail(w.folder).map(x=>x.name).join(' / '):'';
   $('#dCues').textContent=`${fin?`In ${fin} · `:''}${w.nolog?'Not added to your chart · ':''}Start: ${cueLabel(wCue(w,'start'))} · End: ${cueLabel(wCue(w,'end'))} · Finish: ${cueLabel(wCue(w,'done'))}${countdownOn(w)?` · ${countdownOf(w)}s countdown`:''}${transOf(w)?` · ${fmtS(transOf(w))} between intervals`:''}`;
   $('#dRail').innerHTML=railHTML(w);markOverflow($('#dRail'));
@@ -3526,8 +3549,8 @@ function renderSettings(){
       ${row('delHistory','trash','Delete all routine history',plural(S.history.length,'session'),'red',!S.history.length)}
       ${row('delWorkouts','trash','Delete all routines',plural(S.workouts.length,'routine'),'red',!S.workouts.length)}
       ${sw('shrinkVid','Shrink videos when adding',s.shrinkVid,'Smaller files, a little softer; sound is dropped either way')}
-      ${row('exportR','download','Export routines','Pick which')}
-      ${row('importR','upload','Import routines','Adds, never replaces')}
+      ${row('exportR','download','Export routines and folders','Pick which')}
+      ${row('importR','upload','Import routines and folders','Adds, never replaces')}
       ${row('export','download','Save a backup file','')}
       ${row('import','upload','Restore from a backup','')}
       ${PWA.update?`<button class="srow upd" data-set="reload">${ui('flip')}<span class="sl">New version ready<small>Reload to use it</small></span><span class="val">Reload</span></button>`
@@ -3852,6 +3875,7 @@ function deleteWorkouts(ids){
    Add a line here with each merge. */
 const REPO_URL='https://github.com/sonusario/IntervalTimer',HUB_URL='https://sonusario.github.io/';
 const CHANGES=[
+  ['2026-11-14','Export and import whole folders, folders within folders included; description text for any interval, shown on its own panel while running; routine lengths read as h:mm:ss first'],
   ['2026-11-12','Installs on Android as its own app (Interval, with its icon) instead of a shortcut named after the site'],
   ['2026-11-09','Variants for any interval (say, harder progressions of an exercise), picked while editing or running; name stopwatch laps as you go'],
   ['2026-11-03','Export chosen routines to a file and import them on another device (media stays behind)'],
@@ -3925,7 +3949,7 @@ async function restoreBackup(data){
    recorded or picked sounds. Built-in, spoken and synth sounds travel, as do
    small inline icons. Importing always adds copies with fresh IDs, so a file can
    be imported twice, or on the device it came from, without touching anything. */
-const ROUTINES_FILE=1;
+const ROUTINES_FILE=2;
 /* The routines `ids` lean on as subroutines, all the way down, from `pool`. */
 function withSubs(ids,pool){
   const by=new Map(pool.map(w=>[w.id,w])),out=[],seen=new Set();
@@ -3953,48 +3977,89 @@ function shareable(w){
   delete c.folder;
   return {w:c,lost};
 }
-/* Tick the routines to send. Subroutines come along on their own. */
-function exportRoutinesSheet(pre){
-  if(!S.workouts.length)return toast('There are no routines to export');
-  const on=new Set(pre?[pre]:[]);
+/* ---------- Routine files ----------
+   Version 2 carries folders: each folder names its parent (null for the ones that
+   were picked, which land wherever the importer is), and each routine names its
+   folder. A version 1 file is the same thing with no folders in it. */
+const fileFolderPath=(f,by)=>{const out=[];for(let x=f,g=0;x&&g<32;x=by.get(x.parent),g++)out.unshift(x.name);return out.join(' / ')};
+/* Only the topmost of the picked folders: one inside another is already coming. */
+function topFolders(ids,pool){
+  const by=new Map(pool.map(f=>[f.id,f])),set=new Set(ids);
+  return ids.filter(id=>{for(let f=by.get(by.get(id)?.parent),g=0;f&&g<32;f=by.get(f.parent),g++)if(set.has(f.id))return false;return by.has(id)});
+}
+/* Tick the folders and routines to send. Subroutines come along on their own. */
+function exportRoutinesSheet(pre,preF){
+  if(!S.workouts.length&&!S.folders.length)return toast('There are no routines to export');
+  const on=new Set(pre?[pre]:[]),onF=new Set(preF?[preF]:[]);
   const list=[...S.workouts].sort((a,b)=>a.name.localeCompare(b.name));
+  const by=new Map(S.folders.map(f=>[f.id,f]));
+  const flist=[...S.folders].map(f=>({f,path:fileFolderPath(f,by)})).sort((a,b)=>a.path.localeCompare(b.path));
   const draw=()=>{
-    const subs=withSubs([...on],S.workouts).filter(w=>!on.has(w.id));
+    const got=gatherExport([...on],[...onF]);
+    const subs=got.routines.filter(w=>!on.has(w.id)&&!got.inFolders.has(w.id));
+    const n=got.routines.length,nf=got.folders.length,any=on.size||onF.size;
+    const allOn=on.size===list.length&&onF.size===flist.length;
     openSheet(`<h4>Export routines</h4>
-      <p class="small">Saves the ticked routines to a file you can import on another device. Pictures, videos and recorded sounds stay on this device; built-in, spoken and synth sounds go along.</p>
+      <p class="small">Saves the ticked folders and routines to a file you can import on another device. A folder brings everything inside it, folders within folders included. Pictures, videos and recorded sounds stay on this device; text, built-in, spoken and synth sounds go along.</p>
       <div class="menu picklist">
-        <button data-keep="all" class="swrow" role="switch" aria-checked="${on.size===list.length}">${ui('list')}All routines<span class="switch"></span></button>
-        ${list.map(w=>`<button data-keep="r:${esc(w.id)}" class="swrow" role="switch" aria-checked="${on.has(w.id)}"><span class="dot" style="background:${esc(w.color)};width:10px;height:10px;border-radius:50%;flex:none"></span><span class="sl">${esc(w.name)}<small>${plural(w.intervals.length,'interval')}</small></span><span class="switch"></span></button>`).join('')}
+        <button data-keep="all" class="swrow" role="switch" aria-checked="${allOn}">${ui('list')}Everything<span class="switch"></span></button>
+        ${flist.map(({f,path})=>`<button data-keep="f:${esc(f.id)}" class="swrow" role="switch" aria-checked="${onF.has(f.id)}">${ui('folder')}<span class="sl">${esc(path)}<small>${(()=>{const b=below(f.id);return [b.w.length?plural(b.w.length,'routine'):'',b.f.length?plural(b.f.length,'folder'):''].filter(Boolean).join(' · ')||'Empty'})()}</small></span><span class="switch"></span></button>`).join('')}
+        ${list.map(w=>`<button data-keep="r:${esc(w.id)}" class="swrow" role="switch" aria-checked="${on.has(w.id)}"><span class="dot" style="background:${esc(w.color)};width:10px;height:10px;border-radius:50%;flex:none"></span><span class="sl">${esc(w.name)}<small>${plural(w.intervals.length,'interval')}${w.folder&&by.has(w.folder)?' · in '+esc(fileFolderPath(by.get(w.folder),by)):''}</small></span><span class="switch"></span></button>`).join('')}
       </div>
       ${subs.length?`<p class="small">Also included as subroutines: ${subs.map(w=>esc(w.name)).join(', ')}.</p>`:''}
-      <div class="dialfoot"><button class="btn" data-v="no">Cancel</button><button class="btn pri" data-v="go" ${on.size?'':'disabled'}>Export ${on.size?plural(on.size+subs.length,'routine'):''}</button></div>`,
-    v=>{if(v==='go')exportRoutines([...on])},
+      ${any&&nf?`<p class="small">Exports ${[plural(nf,'folder'),n?plural(n,'routine'):''].filter(Boolean).join(' and ')}.</p>`:''}
+      <div class="dialfoot"><button class="btn" data-v="no">Cancel</button><button class="btn pri" data-v="go" ${any&&(n||nf)?'':'disabled'}>${any&&nf?'Export':`Export ${any?plural(n,'routine'):''}`}</button></div>`,
+    v=>{if(v==='go')exportRoutines([...on],[...onF])},
     {onKeep:k=>{
-      if(k==='all'){if(on.size===list.length)on.clear();else list.forEach(w=>on.add(w.id))}
-      else{const id=k.slice(2);on.has(id)?on.delete(id):on.add(id)}
+      if(k==='all'){if(allOn){on.clear();onF.clear()}else{list.forEach(w=>on.add(w.id));flist.forEach(x=>onF.add(x.f.id))}}
+      else{const id=k.slice(2),set=k[0]==='f'?onF:on;set.has(id)?set.delete(id):set.add(id)}
       const sc=$('.sheetin').scrollTop;draw();$('.sheetin').scrollTop=sc;
     }});
   };
   draw();
 }
-function exportRoutines(ids){
-  const all=withSubs(ids,S.workouts);
-  if(!all.length)return;
+/* What a pick of routines and folders adds up to in the file. */
+function gatherExport(ids,fids){
+  const roots=topFolders(fids,S.folders),folders=[],inFolders=new Set(),fset=new Set();
+  for(const id of roots){
+    const f=folderOf(id);if(!f)continue;
+    const b=below(id);
+    for(const x of [f,...b.f])if(!fset.has(x.id)){fset.add(x.id);folders.push({id:x.id,name:x.name,color:x.color,parent:x.id===id?null:x.parent||null})}
+    b.w.forEach(w=>inFolders.add(w.id));
+  }
+  const routines=withSubs([...new Set([...ids,...inFolders])],S.workouts);
+  return {roots,folders,inFolders,routines};
+}
+function exportRoutines(ids,fids=[]){
+  const g=gatherExport(ids,fids);
+  if(!g.routines.length&&!g.folders.length)return;
   let lost=false;
-  const routines=all.map(w=>{const r=shareable(w);lost=lost||r.lost;return r.w});
-  const data={app:'interval',kind:'routines',version:ROUTINES_FILE,exported:new Date().toISOString(),picked:ids,routines};
-  const name=all.length===1?all[0].name.replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-').slice(0,40)||'routine':`${all.length}-routines`;
+  const routines=g.routines.map(w=>{const r=shareable(w);lost=lost||r.lost;r.w.folder=g.inFolders.has(w.id)?w.folder:null;return r.w});
+  const data={app:'interval',kind:'routines',version:ROUTINES_FILE,exported:new Date().toISOString(),picked:ids,pickedFolders:g.roots,folders:g.folders,routines};
+  const one=g.roots.length===1&&!ids.length?folderOf(g.roots[0])?.name:g.routines.length===1&&!g.folders.length?g.routines[0].name:'';
+  const name=(one||'').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-').slice(0,40)||(g.folders.length?`${g.folders.length}-folders`:`${g.routines.length}-routines`);
   const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,1)],{type:'application/json'}));
   const a=document.createElement('a');a.href=url;a.download=`interval-${name}-${dayKey(Date.now())}.json`;
   document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),5000);
-  toast(`Exported ${plural(all.length,'routine')}${lost?' without device media':''}`);
+  toast(`Exported ${[g.folders.length?plural(g.folders.length,'folder'):'',plural(g.routines.length,'routine')].filter(Boolean).join(' and ')}${lost?' without device media':''}`);
+}
+/* Folders in a file, cleaned the way a save's are: known parents only, no loops. */
+function fileFolders(raw){
+  const out=(Array.isArray(raw)?raw:[]).filter(f=>f&&safeId(f.id)).map(f=>({id:safeId(f.id),name:String(f.name||'Folder').slice(0,40),color:safeColor(f.color,'#5AA9FF'),parent:safeId(f.parent)}));
+  const by=new Map(out.map(f=>[f.id,f]));
+  for(const f of out){
+    if(f.parent&&!by.has(f.parent))f.parent=null;
+    const seen=new Set([f.id]);
+    for(let p=f.parent;p;){if(seen.has(p)){f.parent=null;break}seen.add(p);p=by.get(p)?.parent||null}
+  }
+  return out;
 }
 /* Routines from a routines file, or from a full backup (whose media is ignored). */
 function routinesInFile(data){
   if(data?.app!=='interval')return null;
-  if(data.kind==='routines'&&Array.isArray(data.routines))return {list:data.routines,picked:Array.isArray(data.picked)?data.picked:null,from:'file'};
-  if(data.state&&Array.isArray(data.state.workouts))return {list:data.state.workouts,picked:null,from:'backup'};
+  if(data.kind==='routines'&&Array.isArray(data.routines))return {list:data.routines,folders:fileFolders(data.folders),picked:Array.isArray(data.picked)?data.picked:null,pickedF:Array.isArray(data.pickedFolders)?data.pickedFolders:null,from:'file'};
+  if(data.state&&Array.isArray(data.state.workouts))return {list:data.state.workouts,folders:fileFolders(data.state.folders),picked:null,pickedF:null,from:'backup'};
   return null;
 }
 function importRoutines(){
@@ -4003,35 +4068,57 @@ function importRoutines(){
     try{data=JSON.parse(await readText(f))}catch(e){}
     const got=routinesInFile(data);
     if(!got)return toast('That file has no Interval routines');
-    const pool=got.list.filter(w=>w&&typeof w==='object'&&Array.isArray(w.intervals)).map(w=>normRoutine(shareable(w).w));
-    if(!pool.length)return toast('That file has no routines in it');
+    const raw=got.list.filter(w=>w&&typeof w==='object'&&Array.isArray(w.intervals));
+    const pool=raw.map(w=>{const c=normRoutine(shareable(w).w);c.folder=safeId(w.folder);return c});
+    const folders=got.folders,fby=new Map(folders.map(x=>[x.id,x]));
+    for(const w of pool)if(w.folder&&!fby.has(w.folder))w.folder=null;
+    if(!pool.length&&!folders.length)return toast('That file has no routines in it');
     const ids=new Set(pool.map(w=>w.id));
-    // Offer the routines that were picked, not the ones that only came along as subroutines.
-    let top=got.picked?pool.filter(w=>got.picked.map(safeId).includes(w.id)):pool;
-    if(!top.length)top=pool;
-    const on=new Set(top.map(w=>w.id));
+    const kidsOf=fid=>{const fs=[],ws=[];const walk=id=>{for(const x of folders)if(x.parent===id){fs.push(x);walk(x.id)}for(const w of pool)if(w.folder===id)ws.push(w)};walk(fid);return {f:fs,w:ws}};
+    // Offer what was picked, not what only came along inside a folder or as a subroutine.
+    const topF=folders.filter(x=>!x.parent);
+    let top=got.picked?pool.filter(w=>!w.folder&&got.picked.map(safeId).includes(w.id)):pool.filter(w=>!w.folder);
+    if(!top.length&&!topF.length)top=pool.filter(w=>!w.folder);
+    const on=new Set(top.map(w=>w.id)),onF=new Set(topF.map(x=>x.id));
+    const pick=()=>{
+      const fset=new Set(),wIn=new Set();
+      for(const id of onF){fset.add(id);const k=kidsOf(id);k.f.forEach(x=>fset.add(x.id));k.w.forEach(w=>wIn.add(w.id))}
+      const list=withSubs([...new Set([...on,...wIn])],pool);
+      return {fset,wIn,list};
+    };
     const draw=()=>{
-      const subs=withSubs([...on],pool).filter(w=>!on.has(w.id));
+      const {fset,wIn,list}=pick(),subs=list.filter(w=>!on.has(w.id)&&!wIn.has(w.id));
+      const nf=fset.size,n=list.length;
       openSheet(`<h4>Import routines</h4>
-        <p class="small">${got.from==='backup'?'From a backup file. Only routines are added; nothing on this device is replaced, and media is left out.':'They are added as new routines next to yours. Nothing on this device is replaced.'}</p>
+        <p class="small">${got.from==='backup'?'From a backup file. Only routines and their folders are added; nothing on this device is replaced, and media is left out.':'They are added as new routines next to yours, folders and all. Nothing on this device is replaced.'}</p>
         <div class="menu picklist">
+          ${topF.map(x=>{const k=kidsOf(x.id);return `<button data-keep="f:${esc(x.id)}" class="swrow" role="switch" aria-checked="${onF.has(x.id)}">${ui('folder')}<span class="sl">${esc(x.name)}<small>${[k.w.length?plural(k.w.length,'routine'):'',k.f.length?plural(k.f.length,'folder'):''].filter(Boolean).join(' · ')||'Empty'}</small></span><span class="switch"></span></button>`}).join('')}
           ${top.map(w=>`<button data-keep="r:${esc(w.id)}" class="swrow" role="switch" aria-checked="${on.has(w.id)}"><span class="dot" style="background:${esc(w.color)};width:10px;height:10px;border-radius:50%;flex:none"></span><span class="sl">${esc(w.name)}<small>${plural(w.intervals.length,'interval')}</small></span><span class="switch"></span></button>`).join('')}
         </div>
         ${subs.length?`<p class="small">Also added as subroutines: ${subs.map(w=>esc(w.name)).join(', ')}.</p>`:''}
-        <div class="dialfoot"><button class="btn" data-v="no">Cancel</button><button class="btn pri" data-v="go" ${on.size?'':'disabled'}>Import ${on.size?plural(on.size+subs.length,'routine'):''}</button></div>`,
-      v=>{if(v==='go')addImported(withSubs([...on],pool),ids)},
-      {onKeep:k=>{const id=k.slice(2);on.has(id)?on.delete(id):on.add(id);const sc=$('.sheetin').scrollTop;draw();$('.sheetin').scrollTop=sc}});
+        ${nf?`<p class="small">Adds ${[plural(nf,'folder'),n?plural(n,'routine'):''].filter(Boolean).join(' and ')}.</p>`:''}
+        <div class="dialfoot"><button class="btn" data-v="no">Cancel</button><button class="btn pri" data-v="go" ${n||nf?'':'disabled'}>${nf?'Import':`Import ${n?plural(n,'routine'):''}`}</button></div>`,
+      v=>{if(v==='go'){const g=pick();addImported(g.list,ids,folders.filter(x=>g.fset.has(x.id)))}},
+      {onKeep:k=>{const id=k.slice(2),set=k[0]==='f'?onF:on;set.has(id)?set.delete(id):set.add(id);const sc=$('.sheetin').scrollTop;draw();$('.sheetin').scrollTop=sc}});
     };
     draw();
   });
 }
-/* Fresh IDs throughout; subroutine links follow their routine to its new ID. */
-function addImported(list,fileIds){
+/* Fresh IDs throughout; subroutine links follow their routine to its new ID, and
+   folders keep their shape, hung under the folder you are in. */
+function addImported(list,fileIds,folders=[]){
   const map=new Map(list.map(w=>[w.id,uid()])),at=atNow(),now=Date.now();
+  const fmap=new Map(folders.map(f=>[f.id,uid()]));
+  const addedF=folders.map(f=>{
+    const parent=f.parent&&fmap.has(f.parent)?fmap.get(f.parent):at;
+    let name=f.name;
+    if(parent===at&&S.folders.some(x=>(x.parent||null)===(at||null)&&x.name===name))name=(name+' (imported)').slice(0,40);
+    return {id:fmap.get(f.id),name,color:f.color,parent:parent||null};
+  });
   const taken=new Set(S.workouts.map(w=>w.name));
   const added=list.map((w,i)=>{
-    const c=normRoutine({...structuredClone(w),id:map.get(w.id),created:now+i,folder:at});
-    if(taken.has(c.name))c.name+=' (imported)';
+    const c=normRoutine({...structuredClone(w),id:map.get(w.id),created:now+i,folder:w.folder&&fmap.has(w.folder)?fmap.get(w.folder):at});
+    if(taken.has(c.name)&&(c.folder||null)===(at||null))c.name+=' (imported)';
     const relink=it=>{
       if(!it?.sub)return;
       if(map.has(it.sub.id))it.sub.id=map.get(it.sub.id);
@@ -4043,9 +4130,10 @@ function addImported(list,fileIds){
     }
     return c;
   });
+  S.folders.push(...addedF);
   S.workouts.push(...added);save();
   if(screen==='settings')renderSettings();else renderDash();
-  toast(`Imported ${plural(added.length,'routine')}`);
+  toast(`Imported ${[addedF.length?plural(addedF.length,'folder'):'',plural(added.length,'routine')].filter(Boolean).join(' and ')}`);
 }
 
 /* ================= Editor ================= */
@@ -4127,6 +4215,9 @@ ${it.hold?`<span class="hflag" title="Waits for a tap before it starts" aria-lab
           </button>
           <button class="audio ${it.audio?'has':''} ${busy.has(it.id+':a')?'busy':''}" data-act="audio" aria-label="${it.audio?'Preview audio track':'Add audio track'}">
             ${ui('music','icon sm')}${busy.has(it.id+':a')?'<span>Saving audio…</span>':it.audio?`${waveSVG(it.audio.peaks)}<span class="xa" data-act="rmaudio" role="button" aria-label="Remove audio track">${ui('close','icon sm')}</span>`:'<span>Add audio track</span>'}
+          </button>
+          <button class="itext ${it.text?'has':''}" data-act="text" aria-label="${it.text?'Edit the description text':'Add text describing this interval'}">
+            ${ui('textdoc','icon sm')}<span class="tx">${it.text?esc(it.text.split('\n').find(l=>l.trim())||''):'Add description text'}</span>
           </button>
         </div>
         <button class="clockmini" data-act="clock" aria-label="${it.sub?`Runs for as long as ${esc(subName(it))}, ${fmt(durOf(it))}`:`Duration ${fmt(durOf(it))}, tap to change`}">${miniClock(it)}</button>
@@ -4834,6 +4925,7 @@ function bindEditor(){
     switch(t.dataset.act){
       case 'icon':iconSheet(it);break;
       case 'media':mediaSheet(it);break;
+      case 'text':textSheet(it,i);break;
       case 'rmmedia':e.stopPropagation();{const k=it.media.key;it.media=null;renderEditor();releaseMedia([k])}break;
       case 'audio':if(it.audio)togglePreview(i,t);else trackSheet(it);break;
       case 'rmaudio':e.stopPropagation();stopPreview();{const k=it.audio.key;it.audio=null;renderEditor();releaseMedia([k])}break;
@@ -4887,6 +4979,22 @@ function bindEditor(){
     const f=e.target.files[0];e.target.value='';e.target.removeAttribute('capture');
     const cb=fileCb;fileCb=null;if(f&&cb)cb(f);
   };
+}
+
+/* Words for an interval: what the exercise is, how to do it, what to watch for.
+   Shown on its own panel while running, next to (or instead of) a picture or video. */
+function textSheet(it,i){
+  openSheet(`<h4>Description text</h4>
+    <p class="small">Shown while this interval runs, in its own panel that scrolls if it is long. Use it for what the exercise is and how to do it.</p>
+    <textarea id="itxt" class="tarea" rows="8" maxlength="${TEXT_MAX}" placeholder="e.g. Feet hip-width, sit back until thighs are level, drive up through your heels.">${esc(it.text||'')}</textarea>
+    <div class="dialfoot">${it.text?'<button class="btn" data-v="rm">Remove</button>':'<button class="btn" data-v="no">Cancel</button>'}<button class="btn pri" data-v="ok">Save</button></div>`,
+  v=>{
+    if(v==='ok'){const t=$('#itxt').value;if(t.trim())it.text=t.replace(/\r\n?/g,'\n').slice(0,TEXT_MAX);else delete it.text}
+    else if(v==='rm')delete it.text;
+    else return;
+    renderEditor();
+  });
+  setTimeout(()=>{const t=$('#itxt');if(t&&!it.text)t.focus()},320);
 }
 
 /* ================= Duration dial ================= */
@@ -5602,6 +5710,7 @@ function drawSkip(r){
   const box=$('#rSkipped'),paused=rootOf(r)?.pausedAt!=null,a=paused?null:skipInfo(r,true);
   if(!a&&!paused&&RE.skip&&rootOf(r)?.id===RE.skip.rid)RE.skip=null;
   box.classList.toggle('hidden',!a);
+  if(RE.schip!==!!a){RE.schip=!!a;requestAnimationFrame(clearText)}
   if(!a)return;
   setT($('#rSkippedT'),fmt(Math.ceil(a.s.left/1000)),'sk');
   const nm=a.it.title||`Interval ${lapIdx(a.w,a.i)+1}`;
@@ -6154,6 +6263,11 @@ function showInterval(r){
   showVarPill(out?null:{r,idx:p.idx,next:tr});
   $('#rRail').innerHTML=railHTML(w,p.idx,true);markOverflow($('#rRail'));
   const media=out?null:it.media;
+  const txt=out?'':(it.text||'');
+  const tb=$('#rText');
+  if(tb.dataset.t!==txt){tb.dataset.t=txt;tb.textContent=txt;tb.scrollTop=0}
+  tb.classList.toggle('hidden',!txt);
+  run.classList.toggle('hastext',!!txt);
   run.classList.toggle('nomedia',!media);
   run.classList.toggle('bleed',!!media&&placeOf(media)==='behind');
   railGeo();
@@ -6179,7 +6293,30 @@ function showInterval(r){
     }
   }else syncVideo(r,true);
   setRing(p.open?null:seg,p.el,r.pausedAt!=null);
+  requestAnimationFrame(clearText);
 }
+/* The paused-time and skipped chips float over the top right of the stage. The
+   description panel steps down out from under whichever is showing, rather than
+   having its first lines hidden behind it; the panel shrinks and scrolls to fit. */
+function clearText(){
+  const tb=$('#rText');if(!tb)return;
+  tb.style.marginTop='';
+  if(tb.classList.contains('hidden')||!runVisible())return;
+  const chips=$$('#run .rpause:not(.hidden)');if(!chips.length)return;
+  /* The stage centres its contents, so pushing the panel down moves it by less than
+     the push: measure again until it is clear. */
+  let m=0;
+  for(let k=0;k<6;k++){
+    const t=tb.getBoundingClientRect();let need=0;
+    for(const c of chips){
+      const b=c.getBoundingClientRect();
+      if(b.width&&b.left<t.right&&b.right>t.left&&b.bottom+8>t.top&&b.top<t.bottom)need=Math.max(need,b.bottom+8-t.top);
+    }
+    if(need<1)break;
+    m+=need;tb.style.marginTop=m+'px';
+  }
+}
+addEventListener('resize',()=>requestAnimationFrame(clearText));
 /* ---------- Variants while running ----------
    The interval on now (or coming up, during a transition) can be switched to another
    of its variants. The routine keeps the choice for next time, and the run is rebuilt
@@ -6336,6 +6473,7 @@ function drawPause(r){
   const box=$('#rPause'),root=rootOf(r);
   const on=!!root&&root.pausedAt!=null&&!root.done&&!isHeld(root);
   box.classList.toggle('hidden',!on);
+  if(RE.pchip!==on){RE.pchip=on;requestAnimationFrame(clearText)}
   if(!on)return;
   const ms=pausedFor(root);
   setT($('#rPauseT'),fmt(Math.floor(ms/1000)),'pt');
@@ -6616,7 +6754,7 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const APP_BUILD='5.14 (2026.11.12)';
+const APP_BUILD='5.15 (2026.11.14)';
 const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
