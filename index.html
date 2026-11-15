@@ -466,6 +466,10 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 #run.hastext .rstage{--rw:min(78cqw,calc(62cqh - 82px),340px)}
 #run.hastext:not(.nomedia) .rstage{--rw:min(78cqw,calc(54cqh - 82px),320px)}
 #run.trans .rtext{opacity:.6}
+/* Under the ring: as wide as the ring's column, a little more compact. */
+#run.textin .rcore .rtext{max-width:none;flex:none;align-self:stretch;margin:2px 0;padding:8px 12px;font-size:14px;line-height:1.4;max-height:26cqh;border-radius:14px}
+#run.textin.hastext:not(.nomedia) .rcore .rtext{max-height:16cqh}
+#run.textin.hastext .rcore{width:min(100%,max(var(--rw),280px))}
 .itext{position:relative;width:100%;margin-top:6px;min-height:32px;border-radius:10px;background:var(--s2);display:flex;align-items:center;gap:6px;padding:0 10px;color:var(--mu);font-size:12px;text-align:left}
 .itext .tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .itext.has{color:var(--tx)}
@@ -504,7 +508,12 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
    and put the whole sweep back on the main thread sixty times a second. */
 .rmask.spent{visibility:hidden}
 .rspin svg{width:100%;height:100%;display:block}
-.rarc{fill:none;stroke:var(--c);stroke-width:9;stroke-linecap:round;stroke-dasharray:282.74 565.49}
+/* Only the end that drains gets a rounded cap, drawn as a dot of its own. A round
+   cap on the other end, the one that stays behind the dividing line, pokes half a
+   stroke back across it: as an interval ran out that showed as a dot at six
+   o'clock beside the last sliver at twelve, two bits of two half rings at once. */
+.rarc{fill:none;stroke:var(--c);stroke-width:9;stroke-linecap:butt;stroke-dasharray:282.74 565.49}
+.rcap{fill:var(--c)}
 @keyframes drain{from{transform:rotate(180deg)}to{transform:rotate(0deg)}}
 .rin{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 15%;pointer-events:none}
 .ricon{line-height:0}
@@ -523,6 +532,19 @@ body[data-screen=dash] #toast{bottom:calc(var(--peek) + 84px)}
 .logpick .lgl{color:var(--mu);font-size:12px;font-weight:600}
 .nolog{flex:none;display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:2px 7px;border-radius:7px;background:var(--s2);color:var(--mu);font-size:11px;font-weight:600;vertical-align:middle}
 .rrail{padding:0 18px}
+/* A long routine's rail scrolls sideways instead of squeezing stops out of sight.
+   The track lines and the fill are stretched to the full scrolled width (--sw, set
+   when the rail is measured), and each edge fades only while there is more that way. */
+/* Taller than the 32px rail elsewhere: scrolling clips both ways, and the stop on
+   now is scaled up with a halo that would otherwise be cut flat top and bottom. */
+#rRail .rail{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;height:46px;margin-top:3px}
+#rRail .rail::-webkit-scrollbar{display:none}
+#rRail .rail::before,#rRail .rail::after,#rRail .rail .fillbar{right:auto;width:calc(var(--sw,100%) - 10px)}
+#rRail .rail.over{-webkit-mask-image:none;mask-image:none}
+#rRail .rail.fr{-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}
+#rRail .rail.fl{-webkit-mask-image:linear-gradient(90deg,transparent,#000 15%);mask-image:linear-gradient(90deg,transparent,#000 15%)}
+#rRail .rail.fl.fr{-webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
+#rRail .rail.drag{cursor:grabbing}
 .rctrl{display:flex;justify-content:center;align-items:center;gap:28px;padding:16px 0 20px}
 .rctrl button{width:58px;height:58px;border-radius:50%;background:rgba(255,255,255,.08);display:grid;place-items:center;flex:none}
 .rctrl .big{width:82px;height:82px;background:var(--c);color:var(--ci,#15131f)}
@@ -627,7 +649,7 @@ button.srow:active{background:var(--s2)}
 .rvar .icon.chevd{color:var(--mu)}
 .rsync{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.08);display:grid;place-items:center;flex:none}
 .rail.tap .seg{cursor:pointer}
-#run.waiting .rarc{opacity:.3}
+#run.waiting .rspin svg{opacity:.3}
 
 /* Chart drawer states */
 .drawer[data-snap=peek]:not(.dragging) .legend,.drawer[data-snap=peek]:not(.dragging) .chart,.drawer[data-snap=peek]:not(.dragging) .avgrow{visibility:hidden}
@@ -811,6 +833,7 @@ body.watching #sheet{z-index:70}
 .echips::-webkit-scrollbar{display:none}
 .dtr{align-self:center;display:flex;align-items:center;gap:6px;color:var(--mu);font-size:12px;padding:2px 10px}
 #run.trans .rarc{stroke:color-mix(in srgb,var(--c2,var(--c)) 65%,var(--tx))}
+#run.trans .rcap{fill:color-mix(in srgb,var(--c2,var(--c)) 65%,var(--tx))}
 #run.trans .rmedia{opacity:.45;filter:saturate(.65)}
 #run.trans .rtitle{color:color-mix(in srgb,var(--c2,var(--c)) 65%,var(--tx))}
 .wcard.duo{background:linear-gradient(115deg,var(--s1) 58%,color-mix(in srgb,var(--c2) 26%,var(--s1)))}
@@ -912,8 +935,12 @@ body.watching #sheet{z-index:70}
   #run.hastext:not(.nomedia) .rmedia{height:auto}
   #run.hastext .rstage{--rw:min(46cqw,calc(100cqh - 78px),340px)}
   #run.hastext:not(.nomedia) .rstage{--rw:min(34cqw,calc(100cqh - 78px),300px)}
+  #run.textin.hastext .rstage{--rw:min(46cqw,calc(68cqh - 78px),300px)}
+  #run.textin.hastext:not(.nomedia) .rstage{--rw:min(40cqw,calc(68cqh - 78px),280px)}
+  #run.textin .rcore .rtext,#run.textin.hastext:not(.nomedia) .rcore .rtext{max-height:calc(30cqh - 40px);align-self:stretch;flex:none}
   .rrail{grid-area:rail;padding:0 18px 8px}
   .rrail .rail{margin-top:0}
+  #rRail .rail{margin-top:-4px}
   .rctrl{grid-area:ctrl;flex-direction:column;justify-content:center;gap:12px;padding:0 20px 0 4px}
   .rctrl button{width:48px;height:48px}
   .rctrl .big{width:66px;height:66px}
@@ -1025,7 +1052,7 @@ body.watching #sheet{z-index:70}
     <div class="rtext hidden" id="rText" tabindex="0" aria-label="Interval description"></div>
     <div class="rcore">
       <div class="ring">
-        <svg viewBox="0 0 200 200"><circle class="rtrack" cx="100" cy="100" r="90"/></svg><div class="rsweep" id="rSweep"><div class="rmask r"><div class="rspin"><svg viewBox="0 0 200 200"><circle class="rarc" cx="100" cy="100" r="90" transform="rotate(90 100 100)"/></svg></div></div><div class="rmask l"><div class="rspin"><svg viewBox="0 0 200 200"><circle class="rarc" cx="100" cy="100" r="90" transform="rotate(-90 100 100)"/></svg></div></div></div>
+        <svg viewBox="0 0 200 200"><circle class="rtrack" cx="100" cy="100" r="90"/></svg><div class="rsweep" id="rSweep"><div class="rmask r"><div class="rspin"><svg viewBox="0 0 200 200"><circle class="rarc" cx="100" cy="100" r="90" transform="rotate(90 100 100)"/><circle class="rcap" cx="100" cy="10" r="4.5"/></svg></div></div><div class="rmask l"><div class="rspin"><svg viewBox="0 0 200 200"><circle class="rarc" cx="100" cy="100" r="90" transform="rotate(-90 100 100)"/><circle class="rcap" cx="100" cy="190" r="4.5"/></svg></div></div></div>
         <div class="rin"><div class="ricon" id="rIcon"></div><div class="rtitle" id="rTitle"></div><div class="rtime num" id="rTime"></div></div>
       </div>
       <div class="rseek" id="rSeek">
@@ -3534,6 +3561,7 @@ function renderSettings(){
       <p class="snote">Where each picture sits, and how it fills that space, is set on the interval itself — tap its image in the editor.</p>
       ${sw('haptics','Vibration',s.haptics,'On interval changes, where supported')}
       ${sw('wake','Keep the screen on',s.wake)}
+      ${sw('textUnder','Description under the timer',!s.textPanel,'Between the countdown ring and its seek bar. Off puts it in a panel of its own beside the ring')}
     </section>
     <section class="sgroup"><h5>Archive</h5>
       <p class="snote">Time from deleted routines moves here, out of the main chart.</p>
@@ -3598,6 +3626,11 @@ function settingAction(k,el){
     s[k]=!s[k];el.setAttribute('aria-checked',String(s[k]));save();
     if(k==='haptics'&&s.haptics)buzz(20);
     if(k==='wake'){if(s.wake&&runs.some(r=>r.w&&!r.done))requestWake();else releaseWake()}
+    return;
+  }
+  if(k==='textUnder'){
+    s.textPanel=!s.textPanel;el.setAttribute('aria-checked',String(!s.textPanel));save();
+    if(runVisible())renderRunner();
     return;
   }
   if(k==='reload')return reloadNow();
@@ -3875,6 +3908,7 @@ function deleteWorkouts(ids){
    Add a line here with each merge. */
 const REPO_URL='https://github.com/sonusario/IntervalTimer',HUB_URL='https://sonusario.github.io/';
 const CHANGES=[
+  ['2026-11-15','The ring no longer shows bits of both halves as an interval runs out; a long routine\u2019s progress rail scrolls; descriptions sit under the timer by default; Check for update and Reload in About'],
   ['2026-11-14','Export and import whole folders, folders within folders included; description text for any interval, shown on its own panel while running; routine lengths read as h:mm:ss first'],
   ['2026-11-12','Installs on Android as its own app (Interval, with its icon) instead of a shortcut named after the site'],
   ['2026-11-09','Variants for any interval (say, harder progressions of an exercise), picked while editing or running; name stopwatch laps as you go'],
@@ -3900,10 +3934,21 @@ function aboutSheet(){
   const link=(href,ic,label,val)=>`<a href="${href}" target="_blank" rel="noopener">${ui(ic)}<span class="sl">${label}</span><span class="val">${val}</span></a>`;
   openSheet(`<h4>About Interval</h4>
     <p class="small">An interval timer for routines, kept entirely on this device. Build ${esc(APP_BUILD)}.</p>
-    <div class="menu">${link(REPO_URL,'ext','Source on GitHub','sonusario/IntervalTimer')}${link(HUB_URL,'home','More projects','sonusario.github.io')}</div>
+    <div class="menu">${link(REPO_URL,'ext','Source on GitHub','sonusario/IntervalTimer')}${link(HUB_URL,'home','More projects','sonusario.github.io')}
+      <button data-keep="aupd">${ui('flip')}<span class="sl">Check for update</span><span class="val" id="aUpd">${aboutUpdLabel()}</span></button>
+      <button data-keep="areload">${ui('restart')}<span class="sl">Reload</span><span class="val">Latest copy</span></button></div>
     <div class="sect">What\u2019s changed</div>
-    <ul class="clog">${CHANGES.map(([d,t])=>`<li><b class="num">${esc(d)}</b><span>${esc(t)}</span></li>`).join('')}</ul>`);
+    <ul class="clog">${CHANGES.map(([d,t])=>`<li><b class="num">${esc(d)}</b><span>${esc(t)}</span></li>`).join('')}</ul>`,null,{onKeep:async k=>{
+      if(k==='areload')return reloadNow();
+      if(k!=='aupd')return;
+      if(PWA.update)return reloadNow();
+      const v=$('#aUpd');if(v)v.textContent='Checking\u2026';
+      await checkForUpdate();
+      const v2=$('#aUpd');if(v2)v2.textContent=aboutUpdLabel();
+    }});
 }
+/* Check, and once a newer build is waiting, the same row offers it. */
+function aboutUpdLabel(){return PWA.update?'New version \u00b7 Reload':PWA.checking?'Checking\u2026':`Build ${APP_BUILD.split(' ')[0]}`}
 
 /* ---------- Backup ---------- */
 async function exportBackup(){
@@ -6268,6 +6313,7 @@ function showInterval(r){
   if(tb.dataset.t!==txt){tb.dataset.t=txt;tb.textContent=txt;tb.scrollTop=0}
   tb.classList.toggle('hidden',!txt);
   run.classList.toggle('hastext',!!txt);
+  placeText(run,tb);
   run.classList.toggle('nomedia',!media);
   run.classList.toggle('bleed',!!media&&placeOf(media)==='behind');
   railGeo();
@@ -6295,13 +6341,22 @@ function showInterval(r){
   setRing(p.open?null:seg,p.el,r.pausedAt!=null);
   requestAnimationFrame(clearText);
 }
+/* The description sits under the ring, between it and the seek bar, unless Settings
+   asks for the older panel of its own beside the ring. Moving the one element keeps
+   its scroll and focus handling the same in both places. */
+function placeText(run,tb){
+  const under=!S.settings.textPanel;
+  run.classList.toggle('textin',under);
+  if(under){const sk=$('#rSeek');if(tb.nextElementSibling!==sk)sk.before(tb)}
+  else{const core=$('#run .rcore');if(tb.nextElementSibling!==core)core.before(tb)}
+}
 /* The paused-time and skipped chips float over the top right of the stage. The
    description panel steps down out from under whichever is showing, rather than
    having its first lines hidden behind it; the panel shrinks and scrolls to fit. */
 function clearText(){
   const tb=$('#rText');if(!tb)return;
   tb.style.marginTop='';
-  if(tb.classList.contains('hidden')||!runVisible())return;
+  if(tb.classList.contains('hidden')||!runVisible()||tb.parentNode.classList.contains('rcore'))return;
   const chips=$$('#run .rpause:not(.hidden)');if(!chips.length)return;
   /* The stage centres its contents, so pushing the panel down moves it by less than
      the push: measure again until it is clear. */
@@ -6394,7 +6449,72 @@ function syncVideo(r,force){
 function railGeo(){
   RE.fill=$('#railFill');
   const el=RE.si>=0?$(`#rRail [data-si="${RE.si}"]`):null,rail=$('#rRail .rail');
-  RE.geo=runVisible()&&el&&rail?{x:el.offsetLeft,w:el.offsetWidth,rw:rail.clientWidth}:null;
+  if(rail){
+    // Measured without the old stretch, which would otherwise hold the width open.
+    rail.style.removeProperty('--sw');
+    if(rail.scrollWidth>rail.clientWidth+1)rail.style.setProperty('--sw',rail.scrollWidth+'px');
+    railFollow(rail,el);
+  }
+  RE.geo=runVisible()&&el&&rail?{x:el.offsetLeft,w:el.offsetWidth,rw:Math.max(rail.clientWidth,rail.scrollWidth)}:null;
+}
+/* The rail is rebuilt with each interval, which puts it back at the start. It is put
+   back where it was, then brought round to the stop on now, unless someone scrolled it
+   in the last few seconds: they are looking at something. */
+function railFollow(rail,el){
+  const max=rail.scrollWidth-rail.clientWidth;
+  if(max<=1){railFades(rail);return}
+  const was=Math.min(max,RE.railX||0),now=Date.now();
+  rail.scrollLeft=was;
+  if(el&&now-(RE.railTouch||0)>4000){
+    const to=Math.max(0,Math.min(max,el.offsetLeft+el.offsetWidth/2-rail.clientWidth*.35));
+    if(Math.abs(to-was)>1){
+      RE.railX=to;
+      const far=Math.abs(to-was)>rail.clientWidth||matchMedia('(prefers-reduced-motion: reduce)').matches;
+      rail.scrollTo({left:to,behavior:far?'auto':'smooth'});
+    }
+  }
+  railFades(rail);
+}
+function railFades(rail){
+  const max=rail.scrollWidth-rail.clientWidth;
+  rail.classList.toggle('fl',max>1&&rail.scrollLeft>1);
+  rail.classList.toggle('fr',max>1&&rail.scrollLeft<max-1);
+}
+/* Touch scrolls the rail natively; a mouse gets its wheel and a drag. A drag that
+   moved is not a tap on a stop. */
+function bindRailScroll(box){
+  const touch=()=>{RE.railTouch=Date.now()};
+  box.addEventListener('scroll',e=>{
+    const rail=e.target;if(!rail.classList?.contains('rail'))return;
+    RE.railX=rail.scrollLeft;railFades(rail);
+  },true);
+  box.addEventListener('touchstart',touch,{passive:true});
+  box.addEventListener('wheel',e=>{
+    const rail=$('.rail',box);if(!rail||rail.scrollWidth<=rail.clientWidth+1)return;
+    const d=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;if(!d)return;
+    e.preventDefault();touch();rail.scrollLeft+=d*(e.deltaMode===1?32:1);
+  },{passive:false});
+  let drag=null;
+  box.addEventListener('pointerdown',e=>{
+    touch();
+    const rail=$('.rail',box);
+    if(e.pointerType!=='mouse'||e.button!==0||!rail||rail.scrollWidth<=rail.clientWidth+1)return;
+    drag={x:e.clientX,left:rail.scrollLeft,rail,moved:false};
+  });
+  addEventListener('pointermove',e=>{
+    if(!drag)return;
+    const dx=e.clientX-drag.x;
+    if(!drag.moved&&Math.abs(dx)>5){drag.moved=true;drag.rail.classList.add('drag')}
+    if(drag.moved){touch();drag.rail.scrollLeft=drag.left-dx}
+  });
+  addEventListener('pointerup',()=>{
+    if(!drag)return;
+    if(drag.moved){
+      drag.rail.classList.remove('drag');
+      RE.railNoClick=Date.now();
+    }
+    drag=null;
+  });
 }
 function setT(el,v,k){if(RE.shown[k]!==v){RE.shown[k]=v;el.textContent=v}}
 function setS(el,prop,v,k){if(RE.shown[k]!==v){RE.shown[k]=v;el.style[prop]=v}}
@@ -6608,7 +6728,9 @@ function bindRun(){
   };
   $('#rSync').onclick=()=>{const r=focusRun();if(!r||r.done)return;timingSheet({run:isKid(r)?parentOf(r):r})};
   $('#rTabs').onclick=e=>{const t=e.target.closest('[data-tab]');if(!t)return;focusId=t.dataset.tab;RE.seeking=false;renderRunner()};
+  bindRailScroll($('#rRail'));
   $('#rRail').onclick=e=>{
+    if(Date.now()-(RE.railNoClick||0)<300)return;
     const s=e.target.closest('[data-j]'),r=focusRun();
     if(s&&r&&isLive(r))seekSeg(r,segOfInterval(r.w,+s.dataset.j),0,true);
   };
@@ -6754,7 +6876,7 @@ const justSorted=el=>Date.now()-(el._sorted||0)<300;
    The manifest is built at run time so start_url and scope point at wherever this
    file is served from. A service worker has to be its own file, so the app offers
    to save one next to itself; without it Chromium browsers withhold Install. */
-const APP_BUILD='5.15 (2026.11.14)';
+const APP_BUILD='5.16 (2026.11.15)';
 const PWA={prompt:null,sw:null,update:false,checking:false,installed:matchMedia('(display-mode: standalone)').matches};
 /* The worker tells us when the copy it just fetched differs from the one on screen.
    Nothing is forced: the bar only shows on the dashboard, so a running routine is
